@@ -138,7 +138,9 @@ class TestAddCommand:
 
     def test_add_with_project(self, runner, isolated_env, local_skill):
         home, napoln_home, env = isolated_env
-        result = runner.invoke(app, ["add", str(local_skill), "--project"], env=env)
+        result = runner.invoke(
+            app, ["add", str(local_skill), "--project", "--agents", "claude-code"], env=env
+        )
         assert result.exit_code == 0
 
 
