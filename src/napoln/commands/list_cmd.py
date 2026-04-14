@@ -21,27 +21,35 @@ def _abbreviate_path(path: str, home: str) -> str:
     return path
 
 
-def _get_placement_dirs(entry: manifest.SkillEntry, home: str) -> list[str]:
-    """Extract unique shortened parent dirs from agent placements."""
+AGENT_SHORT_NAMES: dict[str, str] = {
+    "claude-code": "claude",
+    "gemini-cli": "gemini",
+    "pi": "pi",
+    "codex": "codex",
+    "cursor": "cursor",
+}
+
+
+def _get_agent_names(entry: manifest.SkillEntry) -> list[str]:
+    """Get short agent names for a skill entry."""
+    names: list[str] = []
     seen: set[str] = set()
-    dirs: list[str] = []
-    for placement in entry.agents.values():
-        parent = str(Path(placement.path).parent)
-        short = _abbreviate_path(parent, home)
+    for agent_id in entry.agents:
+        short = AGENT_SHORT_NAMES.get(agent_id, agent_id)
         if short not in seen:
             seen.add(short)
-            dirs.append(short)
-    return dirs
+            names.append(short)
+    return names
 
 
-def _common_placements(mf: manifest.Manifest, home: str) -> list[str] | None:
-    """If all skills share the same placement dirs, return them. Else None."""
+def _common_agents(mf: manifest.Manifest) -> list[str] | None:
+    """If all skills share the same agents, return them. Else None."""
     common: list[str] | None = None
     for entry in mf.skills.values():
-        dirs = _get_placement_dirs(entry, home)
+        agents = _get_agent_names(entry)
         if common is None:
-            common = dirs
-        elif dirs != common:
+            common = agents
+        elif agents != common:
             return None
     return common
 
@@ -72,13 +80,12 @@ def _print_skills(
     if not mf.skills:
         return
 
-    home = str(Path.home())
-    common = _common_placements(mf, home)
+    common = _common_agents(mf)
 
-    # Build header with common placements if they exist
+    # Build header with common agents if they exist
     if common:
-        dirs_str = "  ".join(common)
-        output.header(f"{label} (→ {dirs_str}):")
+        agents_str = ", ".join(common)
+        output.header(f"{label} (→ {agents_str}):")
     else:
         output.header(f"{label}:")
 
@@ -94,11 +101,11 @@ def _print_skills(
         ver_col = f"  {entry.version:<{max_ver}}"
         source_col = f"  {source}"
 
-        # If placements differ per skill, show them on this line
+        # If agents differ per skill, show them on this line
         suffix = ""
         if not common:
-            dirs = _get_placement_dirs(entry, home)
-            suffix = "  →  " + "  ".join(dirs)
+            agents = _get_agent_names(entry)
+            suffix = f"  → {', '.join(agents)}"
 
         typer.echo(
             typer.style(name_col, bold=True)
