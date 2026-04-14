@@ -11,7 +11,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from napoln.errors import ResolverError
+from napoln.errors import MultipleSkillsError, ResolverError
 
 
 @dataclass
@@ -440,14 +440,7 @@ def _find_skill_in_repo(repo_dir: Path, subpath: str) -> Path:
         if len(skill_dirs) == 1:
             return skill_dirs[0]
         if len(skill_dirs) > 1:
-            names = ", ".join(d.name for d in sorted(skill_dirs))
-            raise ResolverError(
-                f"Multiple skills found: {names}",
-                fix=(
-                    "Specify which skill with --skill <name> or use the full path:\n"
-                    "  napoln add <source>/skills/<name>"
-                ),
-            )
+            raise MultipleSkillsError(repo_dir, skill_dirs)
 
     # Scan for any SKILL.md
     skill_files = list(repo_dir.rglob("SKILL.md"))
@@ -456,11 +449,7 @@ def _find_skill_in_repo(repo_dir: Path, subpath: str) -> Path:
     if len(skill_files) == 1:
         return skill_files[0].parent
     if len(skill_files) > 1:
-        names = ", ".join(str(f.parent.relative_to(repo_dir)) for f in sorted(skill_files))
-        raise ResolverError(
-            f"Multiple skills found: {names}",
-            fix="Specify which skill with --skill <name>.",
-        )
+        raise MultipleSkillsError(repo_dir, [f.parent for f in skill_files])
 
     raise ResolverError(
         "No SKILL.md found in the repository",
@@ -497,6 +486,30 @@ def _extract_version(skill_dir: Path) -> str:
     return "0.0.0"
 
 
+def _extract_description(skill_dir: Path) -> str:
+    """Extract description from SKILL.md frontmatter."""
+    skill_md = skill_dir / "SKILL.md"
+    if not skill_md.exists():
+        return ""
+
+    try:
+        import yaml
+
+        content = skill_md.read_text(encoding="utf-8")
+        if not content.startswith("---"):
+            return ""
+        end = content.find("---", 3)
+        if end == -1:
+            return ""
+        frontmatter = yaml.safe_load(content[3:end])
+        if isinstance(frontmatter, dict):
+            return str(frontmatter.get("description", ""))
+    except Exception:
+        pass
+
+    return ""
+
+
 def discover_skills_in_repo(repo_dir: Path) -> list[Path]:
     """Discover all skill directories in a repository.
 
@@ -516,3 +529,17 @@ def discover_skills_in_repo(repo_dir: Path) -> list[Path]:
             skill_dirs.append(skill_md.parent)
 
     return skill_dirs
+
+
+def discover_skill_choices(repo_dir: Path) -> list[tuple[str, str, Path]]:
+    """Discover skills with names and descriptions.
+
+    Returns:
+        List of (name, description, path) tuples.
+    """
+    results = []
+    for skill_dir in discover_skills_in_repo(repo_dir):
+        name = skill_dir.name
+        desc = _extract_description(skill_dir)
+        results.append((name, desc, skill_dir))
+    return results
