@@ -1,7 +1,5 @@
 """Tests for napoln.core.manifest — manifest TOML read/write."""
 
-import pytest
-
 from napoln.core.manifest import (
     AgentPlacement,
     Manifest,
@@ -86,8 +84,12 @@ class TestAddSkillToManifest:
     def test_add_new_skill(self):
         mf = Manifest()
         mf = add_skill_to_manifest(
-            mf, "my-skill", "github.com/owner/repo", "1.0.0", "abc1234",
-            {"claude-code": AgentPlacement("~/.claude/skills/my-skill", "clone", "global")}
+            mf,
+            "my-skill",
+            "github.com/owner/repo",
+            "1.0.0",
+            "abc1234",
+            {"claude-code": AgentPlacement("~/.claude/skills/my-skill", "clone", "global")},
         )
 
         assert "my-skill" in mf.skills
@@ -95,12 +97,8 @@ class TestAddSkillToManifest:
 
     def test_update_existing_skill(self):
         mf = Manifest()
-        mf = add_skill_to_manifest(
-            mf, "my-skill", "local/path", "1.0.0", "abc1234", {}
-        )
-        mf = add_skill_to_manifest(
-            mf, "my-skill", "local/path", "2.0.0", "def5678", {}
-        )
+        mf = add_skill_to_manifest(mf, "my-skill", "local/path", "1.0.0", "abc1234", {})
+        mf = add_skill_to_manifest(mf, "my-skill", "local/path", "2.0.0", "def5678", {})
 
         assert mf.skills["my-skill"].version == "2.0.0"
         assert mf.skills["my-skill"].store_hash == "def5678"
@@ -112,8 +110,11 @@ class TestRemoveSkillFromManifest:
     def test_remove_entire_skill(self):
         mf = Manifest()
         mf.skills["my-skill"] = SkillEntry(
-            source="local", version="1.0.0", store_hash="abc",
-            installed="", updated="",
+            source="local",
+            version="1.0.0",
+            store_hash="abc",
+            installed="",
+            updated="",
         )
 
         mf = remove_skill_from_manifest(mf, "my-skill")
@@ -122,8 +123,11 @@ class TestRemoveSkillFromManifest:
     def test_remove_specific_agents(self):
         mf = Manifest()
         mf.skills["my-skill"] = SkillEntry(
-            source="local", version="1.0.0", store_hash="abc",
-            installed="", updated="",
+            source="local",
+            version="1.0.0",
+            store_hash="abc",
+            installed="",
+            updated="",
             agents={
                 "claude-code": AgentPlacement("path1", "clone", "global"),
                 "pi": AgentPlacement("path2", "clone", "global"),
@@ -138,8 +142,11 @@ class TestRemoveSkillFromManifest:
     def test_remove_all_agents_removes_skill(self):
         mf = Manifest()
         mf.skills["my-skill"] = SkillEntry(
-            source="local", version="1.0.0", store_hash="abc",
-            installed="", updated="",
+            source="local",
+            version="1.0.0",
+            store_hash="abc",
+            installed="",
+            updated="",
             agents={"claude-code": AgentPlacement("path1", "clone", "global")},
         )
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import sys
 from typing import Any
 
 import typer
@@ -75,7 +74,9 @@ def print_json(data: Any) -> None:
 
 
 def skill_status_line(
-    name: str, version: str, source: str,
+    name: str,
+    version: str,
+    source: str,
     agents: list[tuple[str, str, str]] | None = None,
     scope: str = "global",
 ) -> None:
@@ -89,14 +90,8 @@ def skill_status_line(
         scope: "global" or "project".
     """
     scope_tag = f"  [{scope}]" if scope == "project" else ""
-    typer.echo(
-        typer.style(name, bold=True)
-        + f" v{version} ({source}){scope_tag}"
-    )
+    typer.echo(typer.style(name, bold=True) + f" v{version} ({source}){scope_tag}")
     if agents:
         for agent_id, path, status in agents:
             status_color = SUCCESS if status == "clean" else WARNING
-            typer.echo(
-                f"  {agent_id:<14} {path:<40} "
-                + typer.style(status, fg=status_color)
-            )
+            typer.echo(f"  {agent_id:<14} {path:<40} " + typer.style(status, fg=status_color))

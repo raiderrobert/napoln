@@ -12,6 +12,7 @@ from napoln.core.store import get_stored_skill
 
 def _get_napoln_home() -> Path:
     import os
+
     return Path(os.environ.get("NAPOLN_HOME", Path.home() / ".napoln"))
 
 
@@ -84,6 +85,7 @@ def run_diff(
                     )
                     for line in diff:
                         import typer
+
                         if line.startswith("+"):
                             typer.echo(typer.style(line.rstrip(), fg=typer.colors.GREEN))
                         elif line.startswith("-"):

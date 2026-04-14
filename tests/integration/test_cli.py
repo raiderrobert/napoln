@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import os
-from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
@@ -41,7 +39,7 @@ def local_skill(tmp_path):
     skill_dir = tmp_path / "test-skill"
     skill_dir.mkdir()
     (skill_dir / "SKILL.md").write_text(
-        '---\nname: test-skill\ndescription: A test skill.\n'
+        "---\nname: test-skill\ndescription: A test skill.\n"
         'metadata:\n  version: "1.0.0"\n---\n\n# Test Skill\n\nHello.\n'
     )
     return skill_dir
@@ -99,9 +97,7 @@ class TestAddCommand:
 
     def test_add_with_explicit_agent(self, runner, isolated_env, local_skill):
         home, napoln_home, env = isolated_env
-        result = runner.invoke(
-            app, ["add", str(local_skill), "--agents", "claude-code"], env=env
-        )
+        result = runner.invoke(app, ["add", str(local_skill), "--agents", "claude-code"], env=env)
 
         assert result.exit_code == 0
         assert (home / ".claude" / "skills" / "test-skill" / "SKILL.md").exists()
@@ -136,6 +132,7 @@ class TestRemoveCommand:
         (napoln_home).mkdir(parents=True, exist_ok=True)
 
         import tomli_w
+
         (napoln_home / "manifest.toml").write_text(
             tomli_w.dumps({"napoln": {"schema": 1}, "skills": {}})
         )
@@ -177,6 +174,7 @@ class TestStatusCommand:
 
         assert result.exit_code == 0
         import json
+
         data = json.loads(result.output)
         assert "test-skill" in data
 
@@ -216,7 +214,6 @@ class TestDoctorCommand:
         runner.invoke(app, ["add", str(local_skill)], env=env)
         result = runner.invoke(app, ["doctor", "--json"], env=env)
 
-        import json
         # Output may contain both human-readable and JSON
         # Find the JSON part
         output = result.output
@@ -271,9 +268,7 @@ class TestConfigCommand:
     def test_config_set(self, runner, isolated_env):
         _, napoln_home, env = isolated_env
         napoln_home.mkdir(parents=True, exist_ok=True)
-        result = runner.invoke(
-            app, ["config", "set", "telemetry.enabled", "false"], env=env
-        )
+        result = runner.invoke(app, ["config", "set", "telemetry.enabled", "false"], env=env)
         assert result.exit_code == 0
         assert "Set" in result.output
 

@@ -6,11 +6,12 @@ import shutil
 from pathlib import Path
 
 from napoln import output
-from napoln.core import manifest, store
+from napoln.core import manifest
 
 
 def _get_napoln_home() -> Path:
     import os
+
     return Path(os.environ.get("NAPOLN_HOME", Path.home() / ".napoln"))
 
 
@@ -38,9 +39,7 @@ def run_gc(
 
     # Project manifest (if in a project)
     if project_root:
-        project_manifest_path = manifest.get_manifest_path(
-            napoln_home, "project", project_root
-        )
+        project_manifest_path = manifest.get_manifest_path(napoln_home, "project", project_root)
         project_mf = manifest.read_manifest(project_manifest_path)
         for name, entry in project_mf.skills.items():
             referenced.add(f"{name}/{entry.version}-{entry.store_hash}")

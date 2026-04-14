@@ -10,6 +10,7 @@ from napoln.core import linker, manifest, store
 
 def _get_napoln_home() -> Path:
     import os
+
     return Path(os.environ.get("NAPOLN_HOME", Path.home() / ".napoln"))
 
 
@@ -66,9 +67,13 @@ def run_sync(
 
                     # Write provenance
                     from napoln.commands.add import _write_provenance
+
                     _write_provenance(
-                        placement_path, entry.source, entry.version,
-                        entry.store_hash, link_mode,
+                        placement_path,
+                        entry.source,
+                        entry.version,
+                        entry.store_hash,
+                        link_mode,
                     )
 
                     output.success(f"Synced '{skill_name}' to {placement_path}")

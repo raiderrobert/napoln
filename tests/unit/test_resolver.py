@@ -9,8 +9,13 @@ from napoln.errors import ResolverError
 def _local_parsed(path, original=None):
     """Build a ParsedSource for a local path."""
     return ParsedSource(
-        source_type="local", host="", owner="", repo="",
-        path="", version="", original=original or str(path),
+        source_type="local",
+        host="",
+        owner="",
+        repo="",
+        path="",
+        version="",
+        original=original or str(path),
         local_path=path,
     )
 

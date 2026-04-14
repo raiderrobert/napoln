@@ -11,6 +11,7 @@ from napoln.core import manifest
 
 def _get_napoln_home() -> Path:
     import os
+
     return Path(os.environ.get("NAPOLN_HOME", Path.home() / ".napoln"))
 
 
