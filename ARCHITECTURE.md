@@ -6,11 +6,9 @@
 
 **Decentralized.** Any git repo is a valid source. No registry required to publish or install. Go modules model, not npm-central model.
 
-**Content-addressed.** Every stored version has a deterministic SHA-256 hash. Same content → same hash. You always know exactly what you have. Nix model.
+**Content-addressed.** Every stored version has a deterministic SHA-256 hash. Same content → same hash. Nix model.
 
 **Depth over breadth.** Five agents supported well beats forty supported poorly. Each target agent gets tested, validated integration.
-
-**Transparent telemetry.** Opt-in only. `napoln telemetry show-data` shows exactly what would be sent. Nothing is collected by default.
 
 **Self-describing.** napoln ships a bootstrap skill (`napoln-manage`) that teaches agents how to use it. The tool describes itself to the agent, so users can discover and manage skills without leaving their preferred agent.
 
@@ -20,8 +18,10 @@
 |---------|----------------|
 | [Vercel skills](https://github.com/vercel-labs/skills) | The problem space and the [Agent Skills standard](https://agentskills.io/specification) |
 | [graft](https://github.com/raiderrobert/graft) | Versioned file-level dependency management with three-way merge |
+| [mise](https://mise.jdx.dev/) | Dual-scope model (global config + per-project config), `install` syncs both |
 | Go modules | Decentralized sourcing, minimal infrastructure |
 | Nix | Content-addressed packages, reproducibility |
+| Homebrew | `Brewfile` dump/restore pattern for declarative tool management |
 | npm / cargo / uv | Registry-based discovery, semantic versioning, lockfile patterns |
 
 ## Design Inspiration
@@ -34,7 +34,7 @@ This architecture draws directly from how **uv** and **pnpm** solve the same fun
 | **uv** | Cache directory (`~/.cache/uv/`) | Clone/reflink per-file | Immutable (packages never edited) | Clone → Hardlink → Copy |
 | **napoln** | Origin store (`~/.napoln/store/`) | Clone/reflink per-file | **Mutable** (skills are customized) | Clone → Copy (skip hardlink — see below) |
 
-The key difference: pnpm and uv install immutable packages. napoln installs mutable skills that users customize. Clone/reflink is the ideal strategy for this — zero-cost copies that naturally diverge on write, enabling per-agent customization without extra machinery.
+The key difference: pnpm and uv install immutable packages. napoln installs mutable skills that users customize. Clone/reflink is the ideal strategy — zero-cost copies that naturally diverge on write, enabling per-agent customization without extra machinery.
 
 ---
 
@@ -52,15 +52,13 @@ All five target agents implement the [Agent Skills standard](https://agentskills
 
 Claude Code and Cursor have their own global paths. Gemini CLI, pi, and Codex all read from `~/.agents/skills/`. At the project level, `.agents/skills/` is shared by Gemini CLI, pi, Codex, Cursor, and [40+ other agents](https://github.com/vercel-labs/skills#available-agents). Only Claude Code requires `.claude/skills/`.
 
-Codex additionally supports an optional `agents/openai.yaml` sidecar file for richer metadata (display name, icons, tool dependencies, invocation policy). napoln treats this like any other supporting file in the skill directory.
-
 ---
 
 ## Store Layout
 
 ```
 ~/.napoln/
-├── config.toml                             # User config: registry, telemetry, default agents
+├── config.toml                             # User config: default agents, default scope
 ├── manifest.toml                           # Global manifest: all installed skills
 │
 ├── store/                                  # Pristine upstream snapshots (immutable)
@@ -80,7 +78,7 @@ Codex additionally supports an optional `agents/openai.yaml` sidecar file for ri
 
 The store holds **pristine upstream content**. It is the merge base for three-way merge. It is never edited by the user. It is content-addressed: the hash suffix is derived from the SHA-256 of all files in the skill directory (sorted, concatenated).
 
-When a new version of a skill is fetched, a new directory appears in the store. Old versions are retained until `napoln gc` or `napoln upgrade` cleans them up.
+When a new version of a skill is fetched, a new directory appears in the store. Old versions are retained until `napoln config gc` cleans them up.
 
 ### What's In Agent Directories
 
@@ -94,13 +92,7 @@ When a new version of a skill is fetched, a new directory appears in the store. 
 │   └── run.sh                  # reflink of store/.../scripts/run.sh
 └── .napoln                     # napoln tracking metadata (hidden file)
 
-~/.gemini/skills/my-skill/
-├── SKILL.md                    # independent reflink (free until edited)
-├── scripts/
-│   └── run.sh
-└── .napoln
-
-~/.agents/skills/my-skill/      # shared by Gemini CLI + pi
+~/.agents/skills/my-skill/      # shared by Gemini CLI, pi, Codex
 ├── SKILL.md
 ├── scripts/
 │   └── run.sh
@@ -135,7 +127,7 @@ Each agent gets an independent working copy at zero disk cost. If a user customi
 
 ### Fallback: Copy
 
-If reflink is unavailable (older filesystems, cross-device, Windows without Dev Drive):
+If reflink is unavailable (ext4, older filesystems, cross-device, Windows without Dev Drive):
 - Fall back directly to **copy**
 - Skip hardlink — hardlinks share writes, meaning an edit in one agent directory would affect all agents. Incompatible with mutable content where per-agent customization is expected.
 
@@ -144,27 +136,16 @@ Fallback chain:  clone/reflink  →  copy
                  (preferred)       (universal)
 ```
 
-Simpler than uv's chain (clone → hardlink → copy) because the mutability requirement rules out hardlinks as a useful intermediate.
-
 ### Why Not Hardlinks?
 
 pnpm and uv use hardlinks because their packages are immutable. For mutable skills:
-- Editing `~/.claude/skills/my-skill/SKILL.md` would silently modify `~/.gemini/skills/my-skill/SKILL.md` (same inode)
-- The user would have no idea this happened
+- Editing `~/.claude/skills/my-skill/SKILL.md` would silently modify `~/.agents/skills/my-skill/SKILL.md` (same inode)
 - Per-agent customization would be impossible
-- Some editors break hardlinks on save (write-to-temp + rename), causing silent divergence that's hard to debug
-
-Hardlinks are incompatible with mutable content.
+- Some editors break hardlinks on save (write-to-temp + rename), causing silent divergence
 
 ### Why Not Symlinks?
 
-uv explicitly warns against symlinks: "clearing the cache will break all installed packages." The same applies here — if the store is cleaned up, symlinks break and agents silently lose skills.
-
-Additionally:
-- Claude Code watches skill directories for changes; symlinks may confuse file watchers
-- `.gitignore` and git behave differently with symlinks
-- Some tools don't follow symlinks
-- They create tight coupling between the store and agent directories
+uv explicitly warns against symlinks: "clearing the cache will break all installed packages." The same applies here — if the store is cleaned up, symlinks break and agents silently lose skills. Additionally, some tools don't follow symlinks, and `.gitignore` behaves differently with them.
 
 Reflinks provide the independence of copies with the efficiency of links.
 
@@ -176,7 +157,6 @@ Reflinks provide the independence of copies with the efficiency of links.
 # ~/.napoln/manifest.toml
 
 [napoln]
-version = "0.1.0"
 schema = 1
 
 [skills.my-skill]
@@ -191,180 +171,84 @@ installed = "2026-04-14T09:00:00Z"
   scope = "global"
 
   [skills.my-skill.agents.gemini-cli]
-  path = "~/.gemini/skills/my-skill"
-  link_mode = "clone"
-  scope = "global"
-
-  [skills.my-skill.agents.pi]
   path = "~/.agents/skills/my-skill"
-  link_mode = "copy"              # fell back to copy on this system
-  scope = "global"
-
-[skills.code-review]
-source = "github.com/other/repo/skills/code-review"
-version = "2.0.1"
-store_hash = "d19e4a..."
-installed = "2026-04-14T10:00:00Z"
-
-  [skills.code-review.agents.claude-code]
-  path = ".claude/skills/code-review"   # relative = project-level
   link_mode = "clone"
-  scope = "project"
+  scope = "global"
 ```
 
-### Project-Level Manifest
+### Dual-Scope Manifests
 
-Projects can also have a `.napoln/manifest.toml` at the project root, tracking project-scoped skill installations:
+Following the mise model, napoln supports both global and project manifests:
 
-```
-my-project/
-├── .napoln/
-│   └── manifest.toml               # Project-level skill tracking
-├── .claude/skills/code-review/     # Reflinked working copy
-├── .gemini/skills/code-review/     # Reflinked working copy
-├── .agents/skills/code-review/     # Reflinked working copy
-└── ...
-```
+- **Global** (`~/.napoln/manifest.toml`): Skills always available. Put this in dotfiles for the new-machine story.
+- **Project** (`.napoln/manifest.toml`): Skills specific to a codebase. Committed to git. Teammates run `napoln install`.
+
+`napoln install` syncs both manifests automatically, similar to `mise install`.
 
 ---
 
 ## Core Workflows
 
-### Install
+### Add
 
 ```
-$ napoln add github.com/owner/repo/skills/my-skill
+$ napoln add owner/repo --skill code-review
 
-1. Resolve source
-   - Parse source identifier
-   - Clone/fetch git repo (or download from registry)
-   - Locate skill directory in repo
-
-2. Store
-   - Hash skill contents → ab3f7c...
-   - Copy to store: ~/.napoln/store/my-skill/1.2.0-ab3f7c/
-   - Pristine upstream snapshot — immutable from this point
-
-3. Detect agents
-   - Scan for ~/.claude/, ~/.gemini/, ~/.pi/, ~/.agents/
-   - Or use explicit --agents flag
-
-4. Place working copies
-   - For each target agent:
-     a. Try reflink/clone from store → agent skill directory
-     b. If reflink fails on first file: fall back to copy
-     c. Write .napoln provenance file
-     d. Record link_mode in manifest
-
-5. Update manifest
-   - Add entry to ~/.napoln/manifest.toml
-   - Record version, hash, agent placements, link modes
+1. Parse source → clone/fetch git repo → locate skill directory
+2. Hash skill contents → store at ~/.napoln/store/code-review/1.2.0-ab3f7c/
+3. Detect agents (or use --agents override)
+4. Place working copies via reflink (or copy fallback) into each agent directory
+5. Write .napoln provenance file in each placement
+6. Update manifest with version, hash, agent placements
 ```
+
+For multi-skill repos without `--skill` or `--all`, an interactive picker is shown.
 
 ### Upgrade
 
 ```
-$ napoln upgrade my-skill
+$ napoln upgrade code-review
 
-1. Fetch new upstream
-   - Resolve latest version (or specified version)
-   - Download to cache, extract
+1. Re-resolve source → fetch latest version → store new version
+2. For each agent placement, three-way merge:
 
-2. Store new version
-   - Hash new contents → d19e4a...
-   - Store at ~/.napoln/store/my-skill/1.3.0-d19e4a/
-
-3. Three-way merge (per agent)
-   For each agent placement:
-
-   BASE:   store/my-skill/1.2.0-ab3f7c/SKILL.md    (pristine v1.2.0)
-   OURS:   ~/.claude/skills/my-skill/SKILL.md        (user's working copy, may be customized)
-   THEIRS: store/my-skill/1.3.0-d19e4a/SKILL.md     (pristine v1.3.0)
+   BASE:   store/code-review/1.2.0-ab3f7c/SKILL.md  (pristine old)
+   OURS:   ~/.claude/skills/code-review/SKILL.md      (user's working copy)
+   THEIRS: store/code-review/1.3.0-d19e4a/SKILL.md  (pristine new)
 
    Cases:
-   a. OURS == BASE (no local changes)
-      → Replace with reflink of new store version. Fast path.
+   a. OURS == BASE → fast-forward (reflink new version over old)
+   b. OURS != BASE, no conflicts → apply three-way merge
+   c. OURS != BASE, conflicts → write conflict markers, exit code 2
+   d. Non-SKILL.md files → replace if unchanged, keep + warn if modified
 
-   b. OURS != BASE, no conflicts with THEIRS
-      → Apply three-way merge. Write result to agent directory.
-      → The result is a plain file (no longer a reflink — it has merged content).
-
-   c. OURS != BASE, conflicts with THEIRS
-      → Write merge result with conflict markers to agent directory.
-      → Alert user (or let bootstrap skill resolve).
-
-   d. Repeat for scripts/, references/, etc.
-      → For non-SKILL.md files, default to "replace if unchanged, warn if changed."
-
-4. Update manifest
-   - Point store_hash to new version
-   - Retain old store version until `napoln gc`
-
-5. Optionally clean old store version
-   - `napoln gc` removes store versions not referenced by any manifest
+3. Update manifest only if merge was clean
 ```
 
-### Sync / Repair
+Uses `git merge-file` as primary implementation. Falls back to `difflib`-based Python merge when git is unavailable.
+
+### Install
 
 ```
-$ napoln sync
+$ napoln install
 
-For each skill in manifest:
-  For each agent placement:
-    - Verify agent directory exists and has expected files
-    - If missing: re-place from store (reflink or copy)
-    - If .napoln provenance file is missing: warn but don't overwrite
-      (user may have manually placed a skill)
-
-$ napoln doctor
-
-  - Verify store integrity (hash check)
-  - Verify all manifest entries have valid store versions
-  - Verify all agent placements exist
-  - Report link_mode per placement
-  - Report which skills have local modifications (diff against store)
+Reads global manifest + project manifest (if present).
+For each skill, re-places from store if placement is missing.
+Reports what was synced.
 ```
 
-### Status / Diff
+### List
 
 ```
-$ napoln status
+$ napoln list
+Global (→ .claude, .cursor, .agents):
+  code-review    1.2.0   owner/repo
+  my-skill       0.3.1   other/repo
 
-my-skill v1.2.0 (github.com/owner/repo)
-  claude-code  ~/.claude/skills/my-skill     modified (SKILL.md)
-  gemini-cli   ~/.gemini/skills/my-skill     clean
-  pi           ~/.agents/skills/my-skill     clean
-
-code-review v2.0.1 (github.com/other/repo)
-  claude-code  .claude/skills/code-review    clean
-  gemini-cli   .gemini/skills/code-review    clean
-
-$ napoln diff my-skill --agent claude-code
-
---- store (upstream v1.2.0)
-+++ ~/.claude/skills/my-skill/SKILL.md (working copy)
-@@ -5,3 +5,5 @@
- ## Instructions
- 1. Review the code
-+2. Focus on security implications
-+3. Check error handling
- ...
-```
-
-### Uninstall
-
-```
-$ napoln remove my-skill
-
-1. Remove agent directory placements
-   - Delete ~/.claude/skills/my-skill/
-   - Delete ~/.gemini/skills/my-skill/
-   - Delete ~/.agents/skills/my-skill/
-
-2. Remove from manifest
-
-3. Store version retained until `napoln gc`
-   (allows undo / reinstall at same version)
+$ napoln list -v
+Global (→ ~/.claude/skills  ~/.cursor/skills  ~/.agents/skills):
+  code-review    1.2.0   owner/repo
+  my-skill       0.3.1   other/repo
 ```
 
 ---
@@ -385,18 +269,13 @@ napoln uses a standard three-way merge (same algorithm as `git merge-file`):
         MERGED
 ```
 
-Python has `difflib` in the standard library, but for robust three-way merge a proper implementation is needed. Options:
-- Shell out to `git merge-file`
-- Use `merge3` Python library
-- Implement using `difflib.SequenceMatcher`
-
-`git merge-file` is the primary implementation. It handles conflict markers, whitespace, and edge cases correctly. When git is unavailable, napoln falls back to a `difflib`-based Python implementation.
+`git merge-file` is the primary implementation. When git is unavailable, napoln falls back to a `difflib`-based Python implementation.
 
 ### What Gets Merged
 
 | File | Merge strategy |
 |------|---------------|
-| `SKILL.md` | Full three-way merge (this is the primary content users customize) |
+| `SKILL.md` | Full three-way merge (primary content users customize) |
 | `scripts/*` | Replace if unchanged; warn + keep local if modified |
 | `references/*` | Replace if unchanged; warn + keep local if modified |
 | `assets/*` | Replace if unchanged; warn + keep local if modified |
@@ -406,17 +285,16 @@ Python has `difflib` in the standard library, but for robust three-way merge a p
 
 When three-way merge produces conflicts:
 
-1. **Write conflict markers** to the file (standard `<<<<<<<` / `=======` / `>>>>>>>` format)
-2. **Print a clear message** telling the user which files have conflicts
-3. **Let the agent help** — the bootstrap skill teaches agents to look for and resolve conflict markers
-4. **`napoln resolve my-skill --agent claude-code`** — marks conflicts as resolved after user/agent edits
+1. Write conflict markers to the file (standard `<<<<<<<` / `=======` / `>>>>>>>` format)
+2. Keep the manifest at the old version so re-running `upgrade` works after resolution
+3. Print a message telling the user which files have conflicts
+4. Exit code 2 to signal conflicts
 
-### The "No Local Changes" Fast Path
+### The Fast Path
 
-Most users won't customize most skills. On upgrade:
+Most users do not customize most skills. On upgrade:
 1. Diff working copy against store base
-2. If identical → just reflink the new version over the old. No merge needed.
-3. The common case. Instant.
+2. If identical → reflink the new version over the old. No merge needed.
 
 ---
 
@@ -424,37 +302,31 @@ Most users won't customize most skills. On upgrade:
 
 ### Cross-Filesystem Placements
 
-If `~/.napoln/store/` and `~/.claude/` are on different filesystems:
-- Reflink will fail (reflinks are same-filesystem only)
-- Fall back to copy
-- Detected on first file and recorded in manifest
+If `~/.napoln/store/` and `~/.claude/` are on different filesystems, reflink will fail (same-filesystem only). Fall back to copy. Detected on first file and recorded in manifest.
 
 ### Disk Usage with Copies
 
-With the copy fallback, content is duplicated. For skills (typically a few KB of markdown + small scripts), the overhead is negligible. A skill with 10KB of content across 3 agents = 30KB of copies + 10KB store = 40KB total.
+With the copy fallback, content is duplicated. For skills (typically a few KB of markdown + small scripts), the overhead is negligible.
 
 ### User Edits the Store Directly
 
-The store is an implementation detail at `~/.napoln/store/`. If edited directly, `napoln doctor` detects the hash mismatch and reports corruption.
+The store is an implementation detail. If edited directly, `napoln config doctor` detects the hash mismatch and reports corruption.
 
 ### Agent Creates/Modifies a Skill
 
-Some agents (Gemini CLI's `skill-creator`) can create new skills. If an agent creates a skill in `.gemini/skills/new-skill/`, napoln ignores it — napoln only manages skills it installed. `napoln doctor` can report untracked skills.
-
-If an agent modifies a napoln-managed skill, the modification happens on the working copy. `napoln upgrade` merges these changes with the new upstream version.
+napoln only manages skills it installed. If an agent modifies a napoln-managed skill, the modification happens on the working copy. `napoln upgrade` merges these changes with the new upstream version.
 
 ### Multiple Projects, Same Skill, Different Versions
 
-Project A wants `my-skill@1.2.0`, Project B wants `my-skill@1.3.0`. Both versions coexist in the store. Each project's `.claude/skills/my-skill/` is reflinked from its respective store version. The store's version-hash directory structure prevents conflicts.
+Both versions coexist in the store. Each project's `.claude/skills/my-skill/` is reflinked from its respective store version. The store's version-hash directory structure prevents conflicts.
 
 ### Windows
 
-Windows support for reflinks:
-- **Dev Drive (ReFS)**: Supports `block_clone` (reflinks). uv uses this on Windows with Dev Drive.
+- **Dev Drive (ReFS)**: Supports reflinks. uv uses this on Windows with Dev Drive.
 - **NTFS**: No reflink support. Fall back to copy.
-- **WSL**: APFS/btrfs behavior depending on filesystem.
+- **WSL**: Filesystem-dependent behavior.
 
-Without Dev Drive, napoln falls back to copy. The disk cost for skills (typically a few KB) is negligible.
+The disk cost for skills (typically a few KB) makes copy fallback negligible.
 
 ---
 
@@ -462,17 +334,12 @@ Without Dev Drive, napoln falls back to copy. The disk cost for skills (typicall
 
 ### Source Resolution
 
-Skills can come from:
-
 ```bash
-# Git repo (Go-module style — any repo is a valid source)
-napoln add github.com/owner/repo                    # whole repo as skill source
-napoln add github.com/owner/repo/skills/my-skill    # specific skill in repo
-napoln add github.com/owner/repo@v1.2.0             # pinned version
-
-# Registry (npm-style — optional, for discovery)
-napoln add my-skill                                  # resolve from registry
-napoln add @owner/my-skill                           # namespaced registry lookup
+# Git repo (any repo is a valid source)
+napoln add owner/repo                      # interactive picker for multi-skill repos
+napoln add owner/repo --all                # install all skills
+napoln add owner/repo --skill my-skill     # specific skill by name
+napoln add owner/repo@v1.2.0              # pinned version
 
 # Local path (for development)
 napoln add ./path/to/skill
@@ -480,10 +347,7 @@ napoln add ./path/to/skill
 
 ### Version Resolution
 
-- **Git tags**: `v1.2.0` → semver. `napoln upgrade` finds the latest semver tag.
-- **Git branches**: `@main` → track a branch. `napoln upgrade` pulls latest commit.
-- **Git commits**: `@abc123` → pin to exact commit. No upgrade unless explicit.
-- **Registry**: Semver ranges, similar to npm/cargo. `^1.2.0`, `~1.2.0`, `>=1.0`.
+Priority chain: (1) `metadata.version` from SKILL.md frontmatter, (2) semver git tag, (3) git ref, (4) `0.0.0+<short-hash>`.
 
 ### Content Addressing
 
@@ -492,135 +356,22 @@ Each stored version is identified by `{version}-{hash}` where hash = SHA-256 of:
 sort(all files in skill directory) → for each: "{relative_path}\0{file_contents}\0" → SHA-256
 ```
 
-Properties:
-- **Integrity verification**: Know exactly what you have
-- **Deduplication**: Same content from different sources = same hash = one store entry
-- **Reproducibility**: Pin to a hash for bit-for-bit certainty
-
----
-
-## Bootstrap Skills
-
-napoln ships with skills that teach agents how to use it:
-
-### `napoln-manage`
-
-```markdown
----
-name: napoln-manage
-description: >
-  Search, install, upgrade, and manage agent skills using napoln.
-  Use when the user wants to find new skills, install a skill,
-  check for updates, or manage their installed skills.
----
-
-# napoln — Skill Package Manager
-
-You can manage skills for the user using the `napoln` CLI.
-
-## Search for Skills
-
-\`\`\`bash
-napoln search "testing"
-napoln search "code review" --agent claude-code
-\`\`\`
-
-## Install a Skill
-
-\`\`\`bash
-napoln add github.com/owner/repo/skills/skill-name
-napoln add skill-name              # from registry
-\`\`\`
-
-## Check Status
-
-\`\`\`bash
-napoln status                     # show all installed skills
-napoln diff skill-name            # show local modifications
-\`\`\`
-
-## Upgrade
-
-\`\`\`bash
-napoln upgrade                    # upgrade all skills
-napoln upgrade skill-name         # upgrade one skill
-\`\`\`
-
-## Resolve Merge Conflicts
-
-After upgrade, if there are conflicts:
-1. Look for `<<<<<<<`, `=======`, `>>>>>>>` markers in SKILL.md
-2. Edit to resolve, keeping the best of both versions
-3. Run `napoln resolve skill-name`
-```
-
-Installed automatically on first run. Managed as a regular skill — stored, placed, and upgradeable like any other.
-
----
-
-## Telemetry
-
-Telemetry is explicit and auditable.
-
-### What's Collected
-
-```toml
-# ~/.napoln/config.toml
-
-[telemetry]
-enabled = true                    # explicit opt-in during first run
-anonymous_id = "uuid"             # random, not tied to identity
-
-# Collected:
-# - Command name (add, upgrade, remove, search)
-# - Skill source (registry vs git)
-# - Agent targets
-# - Link mode used (clone, copy)
-# - OS and architecture
-# - napoln version
-# - Success/failure
-#
-# Never collected:
-# - Skill names or content
-# - File paths
-# - Git URLs or repo names
-# - Any user-identifiable information
-```
-
-### First-Run Prompt
-
-```
-napoln collects anonymous usage data to improve the tool.
-This includes: commands used, OS type, link mode, success/failure.
-This never includes: skill names, file paths, or personal info.
-
-Enable telemetry? [y/N]
-```
-
-### Transparency
-
-- `napoln telemetry status` — show what's enabled, what's been sent
-- `napoln telemetry disable` — turn off
-- `napoln telemetry show-data` — display exactly what would be sent
-- All telemetry code is in one module, easy to audit
-
 ---
 
 ## CLI Surface
 
 ```
-napoln add <source> [--agents <a,b,c>] [--version <constraint>] [--global|--project]
-napoln remove <name> [--agents <a,b,c>]
-napoln upgrade [<name>] [--version <constraint>]
-napoln status
-napoln diff <name> [--agent <agent>]
-napoln resolve <name> [--agent <agent>]
-napoln search <query> [--agent <agent>]
-napoln sync                        # repair/recreate placements from manifest + store
-napoln doctor                      # health check: store integrity, placement validity
-napoln gc                          # remove unreferenced store versions
-napoln config                      # edit config.toml
-napoln telemetry <status|enable|disable|show-data>
+napoln add <source> [-a|--all] [-s|--skill <name>] [-p|--project] [--agents <list>]
+                    [--version <ver>] [--name <name>] [--dry-run]
+napoln remove <name> [-p|--project] [--agents <list>] [--dry-run]
+napoln upgrade [<name>] [-p|--project] [--version <ver>] [--force] [--dry-run]
+napoln list [-p|--project] [-g|--global] [-v|--verbose] [--json]
+napoln install [-p|--project] [-g|--global] [--dry-run]
+napoln init [<name>]
+napoln config
+napoln config set <key> <value>
+napoln config doctor [-p|--project] [--json]
+napoln config gc [--dry-run]
 ```
 
 ---
@@ -630,26 +381,22 @@ napoln telemetry <status|enable|disable|show-data>
 ```
 napoln/
 ├── pyproject.toml
+├── justfile
 ├── src/
 │   └── napoln/
 │       ├── __init__.py
-│       ├── cli.py                  # Typer CLI entry point
+│       ├── cli.py                  # Typer CLI entry point (7 commands)
 │       ├── errors.py               # Error types
 │       ├── output.py               # Terminal output formatting
-│       ├── telemetry.py            # Telemetry collection (isolated module)
+│       ├── prompts.py              # Interactive skill picker (questionary)
 │       ├── commands/               # One module per CLI command
 │       │   ├── add.py
 │       │   ├── remove.py
 │       │   ├── upgrade.py
-│       │   ├── status.py
-│       │   ├── diff.py
-│       │   ├── resolve.py
-│       │   ├── sync.py
-│       │   ├── doctor.py
-│       │   ├── gc.py
 │       │   ├── list_cmd.py
-│       │   ├── config.py
-│       │   └── telemetry_cmd.py
+│       │   ├── install.py
+│       │   ├── init.py
+│       │   └── config.py          # Also contains doctor and gc subcommands
 │       ├── core/                   # Core logic (no CLI dependency)
 │       │   ├── agents.py               # Agent detection, path configuration
 │       │   ├── hasher.py               # Content hashing (SHA-256)
@@ -675,20 +422,19 @@ napoln/
 
 ## Resolved Questions
 
-These were open during design. Decisions are now implemented.
-
-1. **Registry at launch?** No. v0.1 ships with git-only sources. The CLI parses registry identifiers and returns a clear "not yet available" message. The manifest format supports it for future addition.
+1. **Registry at launch?** No. v0.1 ships with git-only sources. The CLI parses registry identifiers and returns a clear "not yet available" message.
 
 2. **Lock file?** No. The manifest pins exact versions and content hashes, which provides sufficient reproducibility. A lock file adds value when there are transitive dependencies — skills don't have dependencies on other skills.
 
-3. **Skill authoring format:** A directory with `SKILL.md`. No `napoln.toml` required. Skill discovery is based on the Agent Skills standard. Existing skill repos work without modification.
+3. **Skill authoring format:** A directory with `SKILL.md`. No `napoln.toml` required. Existing skill repos work without modification.
 
-4. **Agent-specific frontmatter:** One SKILL.md serves all agents. Agents ignore fields they don't understand, so a single file can include a superset (`allowed-tools` for Claude Code, `disable-model-invocation` for pi). No overlay mechanism.
+4. **Agent-specific frontmatter:** One SKILL.md serves all agents. Agents ignore fields they don't understand.
 
-5. **`.gitignore` strategy:** Commit the manifest, gitignore the placements. Team members run `napoln install` after clone. Same pattern as `package.json` + `node_modules/`.
+5. **`.gitignore` strategy:** Commit the manifest, gitignore the placements. Team members run `napoln install` after clone.
 
 ## Future Considerations
 
 - **Registry API and web UI** for discovery beyond git
 - **Compile-to-agent adapter** if agent formats diverge significantly
 - **Skill dependencies** and a lock file if skills ever depend on other skills
+- **Telemetry** with opt-in collection and transparent audit
