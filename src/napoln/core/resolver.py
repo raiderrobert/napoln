@@ -282,9 +282,7 @@ def resolve_git(
 
         results = []
         for sd in skill_dirs:
-            version = _extract_version(sd) or ref or "0.0.0"
-            if version.startswith("v") and _SEMVER_TAG.match(version):
-                version = version[1:]
+            version = _resolve_version(sd, ref, clone_dir)
             rel = sd.relative_to(clone_dir)
             sid = f"{source_id}/{rel}" if str(rel) != "." else source_id
             results.append(ResolvedSource(
@@ -301,11 +299,7 @@ def resolve_git(
 
     # Single skill resolution
     skill_dir = _find_skill_in_repo(clone_dir, parsed.path)
-    version = _extract_version(skill_dir) or ref or "0.0.0"
-
-    # Clean semver: strip leading 'v'
-    if version.startswith("v") and _SEMVER_TAG.match(version):
-        version = version[1:]
+    version = _resolve_version(skill_dir, ref, clone_dir)
 
     if parsed.path:
         source_id += f"/{parsed.path}"
@@ -318,6 +312,50 @@ def resolve_git(
         cleanup=False,
         skill_name=skill_dir.name,
     )
+
+
+def _get_head_short_hash(repo_dir: Path) -> str:
+    """Get the short commit hash of HEAD."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short=7", "HEAD"],
+            cwd=str(repo_dir),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+    except subprocess.CalledProcessError:
+        return ""
+
+
+def _resolve_version(skill_dir: Path, ref: str, repo_dir: Path) -> str:
+    """Resolve a skill's version from metadata, git ref, or HEAD hash.
+
+    Priority:
+    1. metadata.version from SKILL.md frontmatter
+    2. The git ref (tag/branch) if it looks like a semver
+    3. The git ref as-is (branch name, commit)
+    4. HEAD short commit hash (e.g. '0.1.0+a3f7c4d' if no semver, or just the hash)
+    """
+    # 1. Check SKILL.md metadata
+    meta_version = _extract_version(skill_dir)
+    if meta_version != "0.0.0":
+        return meta_version
+
+    # 2/3. Use the ref if one was resolved (tag or branch)
+    if ref:
+        v = ref
+        if v.startswith("v") and _SEMVER_TAG.match(v):
+            v = v[1:]
+        return v
+
+    # 4. Fall back to HEAD commit hash
+    short_hash = _get_head_short_hash(repo_dir)
+    if short_hash:
+        return f"0.0.0+{short_hash}"
+
+    return "0.0.0"
 
 
 def _resolve_latest_version(repo_dir: Path) -> str:
