@@ -53,9 +53,9 @@ Multi-skill repos show an interactive picker when no `--skill` or `--all` flag i
 ```bash
 napoln add owner/repo
 # ? Select skills to install:
-# ❯ ◉ code-review — Review pull requests for quality and correctness
-#   ◉ testing — Generate and improve test coverage
-#   ◯ rust — Rust-specific development patterns
+# ❯ ◯ code-review  Review pull requests for quality and correctness
+#   ◯ testing       Generate and improve test coverage
+#   ◯ rust          Rust-specific development patterns
 ```
 
 Customize a skill, then upgrade without losing your changes:
