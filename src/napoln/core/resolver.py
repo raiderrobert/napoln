@@ -24,6 +24,7 @@ class ResolvedSource:
     skill_dir: Path  # Path to the skill directory (possibly in cache/temp)
     version: str  # Resolved version
     cleanup: bool = False  # Whether to clean up skill_dir after use
+    skill_name: str = ""  # Resolved skill name (from SKILL.md or directory name)
 
 
 # Git shorthand patterns
@@ -201,15 +202,19 @@ def resolve_local(parsed: ParsedSource) -> ResolvedSource:
     )
 
 
-def resolve_git(parsed: ParsedSource, cache_dir: Path) -> ResolvedSource:
+def resolve_git(
+    parsed: ParsedSource, cache_dir: Path, skill_filter: str | None = None,
+) -> ResolvedSource | list[ResolvedSource]:
     """Resolve a git source by cloning the repo.
 
     Args:
         parsed: Parsed source with git details.
         cache_dir: Directory to use for cloning.
+        skill_filter: If '*', return all skills. If a name, return that one.
+                      If None, error on multi-skill repos.
 
     Returns:
-        ResolvedSource pointing to the skill in the cloned repo.
+        ResolvedSource or list of ResolvedSource for multi-skill repos.
     """
     if not shutil.which("git"):
         raise ResolverError(
@@ -261,7 +266,40 @@ def resolve_git(parsed: ParsedSource, cache_dir: Path) -> ResolvedSource:
                 fix=f"Check that the tag/branch/commit '{ref}' exists.",
             )
 
-    # Find skill directory
+    source_id = f"{parsed.host}/{parsed.owner}/{parsed.repo}"
+
+    # Handle multi-skill repos
+    if skill_filter and not parsed.path:
+        skill_dirs = _find_all_skills_in_repo(clone_dir)
+        if skill_filter != "*":
+            # Filter to a specific skill
+            skill_dirs = [d for d in skill_dirs if d.name == skill_filter]
+            if not skill_dirs:
+                raise ResolverError(
+                    f"Skill '{skill_filter}' not found in the repository",
+                    fix="Use `napoln list <source>` to see available skills.",
+                )
+
+        results = []
+        for sd in skill_dirs:
+            version = _extract_version(sd) or ref or "0.0.0"
+            if version.startswith("v") and _SEMVER_TAG.match(version):
+                version = version[1:]
+            rel = sd.relative_to(clone_dir)
+            sid = f"{source_id}/{rel}" if str(rel) != "." else source_id
+            results.append(ResolvedSource(
+                source_type="git",
+                source_id=sid,
+                skill_dir=sd,
+                version=version,
+                cleanup=False,
+                skill_name=sd.name,
+            ))
+        if len(results) == 1:
+            return results[0]
+        return results
+
+    # Single skill resolution
     skill_dir = _find_skill_in_repo(clone_dir, parsed.path)
     version = _extract_version(skill_dir) or ref or "0.0.0"
 
@@ -269,7 +307,6 @@ def resolve_git(parsed: ParsedSource, cache_dir: Path) -> ResolvedSource:
     if version.startswith("v") and _SEMVER_TAG.match(version):
         version = version[1:]
 
-    source_id = f"{parsed.host}/{parsed.owner}/{parsed.repo}"
     if parsed.path:
         source_id += f"/{parsed.path}"
 
@@ -278,7 +315,8 @@ def resolve_git(parsed: ParsedSource, cache_dir: Path) -> ResolvedSource:
         source_id=source_id,
         skill_dir=skill_dir,
         version=version,
-        cleanup=False,  # cache_dir is reusable
+        cleanup=False,
+        skill_name=skill_dir.name,
     )
 
 
@@ -317,6 +355,23 @@ def _semver_sort_key(tag: str) -> tuple[int, ...]:
         return tuple(int(p) for p in parts)
     except ValueError:
         return (0, 0, 0)
+
+
+def _find_all_skills_in_repo(repo_dir: Path) -> list[Path]:
+    """Find all skill directories in a repo (for --skill '*')."""
+    results: list[Path] = []
+
+    # Root-level skill
+    if (repo_dir / "SKILL.md").exists():
+        results.append(repo_dir)
+        return results
+
+    # Scan for SKILL.md files everywhere
+    for skill_md in sorted(repo_dir.rglob("SKILL.md")):
+        if ".git" not in skill_md.parts:
+            results.append(skill_md.parent)
+
+    return results
 
 
 def _find_skill_in_repo(repo_dir: Path, subpath: str) -> Path:

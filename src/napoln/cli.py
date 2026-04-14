@@ -70,6 +70,7 @@ def add(
         scope=scope,
         project_root=project_root,
         skill_name_override=name,
+        skill_filter=skill,
         dry_run=dry_run,
     )
     raise typer.Exit(code=exit_code)
