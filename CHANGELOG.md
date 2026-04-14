@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.2](https://github.com/raiderrobert/napoln/compare/v0.2.1...v0.2.2) (2026-04-14)
+
+
+### Bug Fixes
+
+* improve interactive skill picker display ([9cae2e7](https://github.com/raiderrobert/napoln/commit/9cae2e7aea70f7f70235b77e6174b925b0f4f679))
+* skill picker highlight no longer fills entire line ([1492f43](https://github.com/raiderrobert/napoln/commit/1492f4344aa7f4f131dec0476a78c7425f6e2d61))
+
 ## [0.2.1](https://github.com/raiderrobert/napoln/compare/v0.2.0...v0.2.1) (2026-04-14)
 
 
