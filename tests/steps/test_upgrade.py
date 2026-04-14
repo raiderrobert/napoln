@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import tomllib
 
-import pytest
 from pytest_bdd import given, parsers, scenario, then, when
 from typer.testing import CliRunner
 
@@ -36,14 +35,14 @@ def test_fast_forward():
     pass
 
 
-@scenario("../features/upgrade.feature",
-          "Clean merge when local and upstream changes do not overlap")
+@scenario(
+    "../features/upgrade.feature", "Clean merge when local and upstream changes do not overlap"
+)
 def test_clean_merge():
     pass
 
 
-@scenario("../features/upgrade.feature",
-          "Conflict when local and upstream change the same lines")
+@scenario("../features/upgrade.feature", "Conflict when local and upstream change the same lines")
 def test_conflict():
     pass
 
@@ -53,8 +52,7 @@ def test_script_replaced():
     pass
 
 
-@scenario("../features/upgrade.feature",
-          "Supporting files kept when locally modified")
+@scenario("../features/upgrade.feature", "Supporting files kept when locally modified")
 def test_script_kept():
     pass
 
@@ -75,14 +73,17 @@ def skill_installed(env: NapolnTestEnv, name: str, version: str, cli_runner: Cli
     assert env.result.exit_code == 0, env.result.output
 
 
-@given(parsers.parse(
-    'a skill "{name}" with a script is installed at version "{version}"'
-))
+@given(parsers.parse('a skill "{name}" with a script is installed at version "{version}"'))
 def skill_with_script_installed(
-    env: NapolnTestEnv, name: str, version: str, cli_runner: CliRunner,
+    env: NapolnTestEnv,
+    name: str,
+    version: str,
+    cli_runner: CliRunner,
 ):
     env.create_local_skill(
-        name, version, BASE_BODY,
+        name,
+        version,
+        BASE_BODY,
         extra_files={"scripts/run.sh": "#!/bin/bash\necho v1\n"},
     )
     env.result = cli_runner.invoke(app, ["add", str(env.skill_dir)], env=env.env_vars)
@@ -131,7 +132,8 @@ def script_modified(env: NapolnTestEnv):
 @given('upstream has released version "2.0.0" with a new section')
 def upstream_new_section(env: NapolnTestEnv):
     env.create_updated_skill(
-        "test-skill", "2.0.0",
+        "test-skill",
+        "2.0.0",
         body=BASE_BODY + "\n## Performance\n\nNew upstream section.\n",
     )
 
@@ -139,7 +141,8 @@ def upstream_new_section(env: NapolnTestEnv):
 @given('upstream has released version "2.0.0" with changes at the beginning')
 def upstream_changes_beginning(env: NapolnTestEnv):
     env.create_updated_skill(
-        "test-skill", "2.0.0",
+        "test-skill",
+        "2.0.0",
         body=BASE_BODY.replace("# Test Skill", "# Test Skill (Improved)"),
     )
 
@@ -147,7 +150,8 @@ def upstream_changes_beginning(env: NapolnTestEnv):
 @given('upstream has released version "2.0.0" with different changes on line 5')
 def upstream_changes_line5(env: NapolnTestEnv):
     env.create_updated_skill(
-        "test-skill", "2.0.0",
+        "test-skill",
+        "2.0.0",
         body=BASE_BODY.replace(
             "This is the overview section.",
             "This is the UPSTREAM overview.",
@@ -158,7 +162,8 @@ def upstream_changes_line5(env: NapolnTestEnv):
 @given('upstream has released version "2.0.0" with an updated script')
 def upstream_updated_script(env: NapolnTestEnv):
     env.create_updated_skill(
-        "test-skill", "2.0.0",
+        "test-skill",
+        "2.0.0",
         body=BASE_BODY,
         extra_files={"scripts/run.sh": "#!/bin/bash\necho v2-upstream\n"},
     )
@@ -211,9 +216,7 @@ def has_conflict_markers(result_env: NapolnTestEnv):
 
 @then(parsers.parse('the output contains "{text}"'))
 def output_contains(result_env: NapolnTestEnv, text: str):
-    assert text in result_env.result.output, (
-        f"Expected '{text}' in:\n{result_env.result.output}"
-    )
+    assert text in result_env.result.output, f"Expected '{text}' in:\n{result_env.result.output}"
 
 
 @then("the script in the Claude Code placement matches the new upstream")

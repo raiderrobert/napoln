@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 from pytest_bdd import given, parsers, scenario, then, when
 from typer.testing import CliRunner
 
@@ -46,9 +45,7 @@ def fresh_napoln(napoln_env: NapolnTestEnv):
 def run_add_local(napoln_env_with_claude: NapolnTestEnv, cli_runner: CliRunner):
     env = napoln_env_with_claude
     skill_path = env.create_local_skill()
-    env.result = cli_runner.invoke(
-        app, ["add", str(skill_path)], env=env.env_vars
-    )
+    env.result = cli_runner.invoke(app, ["add", str(skill_path)], env=env.env_vars)
     return env
 
 
@@ -58,9 +55,7 @@ def run_add_no_agents(napoln_env_no_agents: NapolnTestEnv, cli_runner: CliRunner
     skill_path = env.create_local_skill()
     # Ensure no agents are detected even if pi/codex are on PATH
     monkeypatch.setattr("napoln.core.agents._check_on_path", lambda cmd: False)
-    env.result = cli_runner.invoke(
-        app, ["add", str(skill_path)], env=env.env_vars
-    )
+    env.result = cli_runner.invoke(app, ["add", str(skill_path)], env=env.env_vars)
     return env
 
 

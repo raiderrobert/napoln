@@ -11,6 +11,7 @@ from napoln.core.merger import has_conflict_markers
 
 def _get_napoln_home() -> Path:
     import os
+
     return Path(os.environ.get("NAPOLN_HOME", Path.home() / ".napoln"))
 
 
@@ -62,6 +63,7 @@ def run_resolve(
 
     # Update manifest timestamp
     from napoln.core.manifest import _now_iso
+
     entry.updated = _now_iso()
     manifest.write_manifest(mf, manifest_path)
     output.success(f"'{name}' marked as resolved.")

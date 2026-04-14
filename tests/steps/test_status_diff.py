@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 from pytest_bdd import given, parsers, scenario, then, when
 from typer.testing import CliRunner
 

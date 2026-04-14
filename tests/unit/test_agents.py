@@ -4,7 +4,6 @@ import pytest
 
 from napoln.core.agents import (
     AGENTS,
-    AgentConfig,
     deduplicate_placements,
     detect_agents,
     resolve_agents,

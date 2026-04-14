@@ -80,9 +80,7 @@ def _validate_name(name: str, dir_name: str) -> list[ValidationIssue]:
         issues.append(ValidationIssue(ValidationLevel.WARNING, "name must be lowercase"))
 
     if name.startswith("-"):
-        issues.append(
-            ValidationIssue(ValidationLevel.WARNING, "name must not start with hyphen")
-        )
+        issues.append(ValidationIssue(ValidationLevel.WARNING, "name must not start with hyphen"))
 
     if name.endswith("-"):
         issues.append(ValidationIssue(ValidationLevel.WARNING, "name must not end with hyphen"))
@@ -93,9 +91,7 @@ def _validate_name(name: str, dir_name: str) -> list[ValidationIssue]:
     # Check for invalid characters (allow lowercase, digits, single hyphens)
     name_lower = name.lower()
     if not re.match(r"^[a-z0-9-]+$", name_lower):
-        issues.append(
-            ValidationIssue(ValidationLevel.WARNING, "invalid characters in name")
-        )
+        issues.append(ValidationIssue(ValidationLevel.WARNING, "invalid characters in name"))
 
     if name != dir_name:
         issues.append(
@@ -156,9 +152,7 @@ def validate_skill(skill_dir: Path) -> ValidationResult:
     # 4. description field
     description = frontmatter.get("description")
     if not description:
-        errors.append(
-            ValidationIssue(ValidationLevel.ERROR, "Missing required field: description")
-        )
+        errors.append(ValidationIssue(ValidationLevel.ERROR, "Missing required field: description"))
     else:
         description = str(description)
 

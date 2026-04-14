@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
-import typer
 
 from napoln import output
 from napoln.core import agents as agents_mod
@@ -16,11 +14,12 @@ from napoln.core.resolver import (
     resolve_git,
     resolve_local,
 )
-from napoln.errors import AgentNotFoundError, NapolnError, ResolverError
+from napoln.errors import ResolverError
 
 
 def _get_napoln_home() -> Path:
     import os
+
     return Path(os.environ.get("NAPOLN_HOME", Path.home() / ".napoln"))
 
 
@@ -33,6 +32,7 @@ def _ensure_initialized(napoln_home: Path) -> None:
     config_path = napoln_home / "config.toml"
     if not config_path.exists():
         import tomli_w
+
         config = {
             "napoln": {
                 "default_agents": [],
@@ -47,8 +47,11 @@ def _ensure_initialized(napoln_home: Path) -> None:
 
 
 def _write_provenance(
-    target_dir: Path, source: str, version: str,
-    store_hash: str, link_mode: str,
+    target_dir: Path,
+    source: str,
+    version: str,
+    store_hash: str,
+    link_mode: str,
 ) -> None:
     """Write the .napoln provenance file to a placement."""
     from datetime import datetime, timezone
@@ -91,9 +94,7 @@ def _install_bootstrap_skill(
         return
 
     # Store it
-    store_path, content_hash = store.store_skill(
-        skill_dir, "napoln-manage", "0.1.0", napoln_home
-    )
+    store_path, content_hash = store.store_skill(skill_dir, "napoln-manage", "0.1.0", napoln_home)
 
     # Place it
     placements_map = agents_mod.deduplicate_placements(
@@ -103,9 +104,7 @@ def _install_bootstrap_skill(
 
     for target_path, path_agents in placements_map.items():
         link_mode = linker.place_skill(store_path, target_path)
-        _write_provenance(
-            target_path, "bundled", "0.1.0", content_hash, link_mode
-        )
+        _write_provenance(target_path, "bundled", "0.1.0", content_hash, link_mode)
         for agent in path_agents:
             agent_placements[agent.id] = manifest.AgentPlacement(
                 path=str(target_path),
@@ -185,12 +184,8 @@ def _install_single_skill(
     for target_path, path_agents in placements_map.items():
         try:
             link_mode = linker.place_skill(store_path, target_path)
-            _write_provenance(
-                target_path, resolved.source_id, version, content_hash, link_mode
-            )
-            output.success(
-                f"Placed '{skill_name}' in {target_path} ({link_mode})"
-            )
+            _write_provenance(target_path, resolved.source_id, version, content_hash, link_mode)
+            output.success(f"Placed '{skill_name}' in {target_path} ({link_mode})")
             for agent in path_agents:
                 agent_placements[agent.id] = manifest.AgentPlacement(
                     path=str(target_path),
@@ -291,9 +286,7 @@ def run_add(
         output.dry_run_header()
 
     # Install bootstrap skill on first run
-    _install_bootstrap_skill(
-        napoln_home, home, agent_configs, scope, project_root, dry_run
-    )
+    _install_bootstrap_skill(napoln_home, home, agent_configs, scope, project_root, dry_run)
 
     # Load manifest once
     manifest_path = manifest.get_manifest_path(napoln_home, scope, project_root)
@@ -305,9 +298,16 @@ def run_add(
     for resolved in resolved_list:
         skill_name = skill_name_override or resolved.skill_name or resolved.skill_dir.name
         code = _install_single_skill(
-            resolved, skill_name, agent_configs,
-            napoln_home, home, scope, project_root,
-            mf, manifest_path, dry_run,
+            resolved,
+            skill_name,
+            agent_configs,
+            napoln_home,
+            home,
+            scope,
+            project_root,
+            mf,
+            manifest_path,
+            dry_run,
         )
         if code > worst_exit:
             worst_exit = code

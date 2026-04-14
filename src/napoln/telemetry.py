@@ -9,8 +9,7 @@ from __future__ import annotations
 import os
 import platform
 import time
-import uuid
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from napoln import __version__
@@ -67,9 +66,7 @@ class TelemetryCollector:
 
                 data = tomllib.loads(config_file.read_text())
                 self._enabled = data.get("telemetry", {}).get("enabled", False)
-                self._anonymous_id = data.get("telemetry", {}).get(
-                    "anonymous_id", ""
-                )
+                self._anonymous_id = data.get("telemetry", {}).get("anonymous_id", "")
             except Exception:
                 self._enabled = False
         else:
@@ -84,9 +81,7 @@ class TelemetryCollector:
         if not self.enabled:
             return
         if self._start_time:
-            event.duration_ms = int(
-                (time.monotonic() - self._start_time) * 1000
-            )
+            event.duration_ms = int((time.monotonic() - self._start_time) * 1000)
         self._events.append(event)
 
     def flush(self) -> None:
