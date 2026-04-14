@@ -53,9 +53,11 @@ def run_add_local(napoln_env_with_claude: NapolnTestEnv, cli_runner: CliRunner):
 
 
 @when("I run napoln add with a valid local skill and no agents", target_fixture="run_result")
-def run_add_no_agents(napoln_env_no_agents: NapolnTestEnv, cli_runner: CliRunner):
+def run_add_no_agents(napoln_env_no_agents: NapolnTestEnv, cli_runner: CliRunner, monkeypatch):
     env = napoln_env_no_agents
     skill_path = env.create_local_skill()
+    # Ensure no agents are detected even if pi/codex are on PATH
+    monkeypatch.setattr("napoln.core.agents._check_on_path", lambda cmd: False)
     env.result = cli_runner.invoke(
         app, ["add", str(skill_path)], env=env.env_vars
     )
