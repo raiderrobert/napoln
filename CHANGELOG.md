@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.1](https://github.com/raiderrobert/napoln/compare/v0.2.0...v0.2.1) (2026-04-14)
+
+
+### Bug Fixes
+
+* don't hardcode version in test_version assertion ([443d4cc](https://github.com/raiderrobert/napoln/commit/443d4cc6dbcdc6cbe32b47a2e00e5ee95bd3b369))
+
+
+### Documentation
+
+* update README, ARCHITECTURE, CONTRIBUTING, AGENTS.md for 7-command CLI ([9d0ad9c](https://github.com/raiderrobert/napoln/commit/9d0ad9c26e200c89bdfe53afe6d18f987278e922))
+
 ## [0.2.0](https://github.com/raiderrobert/napoln/compare/v0.1.0...v0.2.0) (2026-04-14)
 
 
