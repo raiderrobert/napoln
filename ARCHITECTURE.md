@@ -16,7 +16,7 @@
 
 ## Prior Art
 
-| Project | What we learned |
+| Project | Lesson |
 |---------|----------------|
 | [Vercel skills](https://github.com/vercel-labs/skills) | The problem space and the [Agent Skills standard](https://agentskills.io/specification) |
 | [graft](https://github.com/raiderrobert/graft) | Versioned file-level dependency management with three-way merge |
@@ -34,7 +34,7 @@ This architecture draws directly from how **uv** and **pnpm** solve the same fun
 | **uv** | Cache directory (`~/.cache/uv/`) | Clone/reflink per-file | Immutable (packages never edited) | Clone → Hardlink → Copy |
 | **napoln** | Origin store (`~/.napoln/store/`) | Clone/reflink per-file | **Mutable** (skills are customized) | Clone → Copy (skip hardlink — see below) |
 
-The key difference: pnpm and uv install immutable packages. napoln installs mutable skills that users customize. This makes **clone/reflink the ideal strategy** — it gives us zero-cost copies that naturally diverge on write, enabling per-agent customization without any extra machinery.
+The key difference: pnpm and uv install immutable packages. napoln installs mutable skills that users customize. Clone/reflink is the ideal strategy for this — zero-cost copies that naturally diverge on write, enabling per-agent customization without extra machinery.
 
 ---
 
@@ -118,7 +118,7 @@ link_mode = "clone"             # or "copy" if reflink unavailable
 installed = "2026-04-14T09:00:00Z"
 ```
 
-This makes each placement self-describing. Even without the global manifest, napoln can figure out what it's looking at.
+Each placement is self-describing. Even without the global manifest, napoln can recover provenance from the `.napoln` file alone.
 
 ---
 
@@ -131,20 +131,20 @@ On APFS (macOS) and btrfs/xfs/bcachefs (Linux), `clonefile()` / `ioctl_ficlone()
 - **Costs zero disk** — shares storage blocks with the original until modified
 - **Diverges on write** — if the user edits the file, only the modified blocks are allocated. The original (store) is untouched.
 
-This is exactly what we want. Each agent gets an independent working copy for free. If the user customizes a skill for Claude Code but not Gemini, only the Claude Code copy costs extra storage.
+Each agent gets an independent working copy at zero disk cost. If a user customizes a skill for Claude Code but not Gemini, only the Claude Code copy allocates extra storage.
 
 ### Fallback: Copy
 
 If reflink is unavailable (older filesystems, cross-device, Windows without Dev Drive):
 - Fall back directly to **copy**
-- Skip hardlink — hardlinks share writes, meaning an edit in one agent directory would affect all agents. This is wrong for mutable content where per-agent customization should be possible.
+- Skip hardlink — hardlinks share writes, meaning an edit in one agent directory would affect all agents. Incompatible with mutable content where per-agent customization is expected.
 
 ```
 Fallback chain:  clone/reflink  →  copy
                  (preferred)       (universal)
 ```
 
-This is simpler than uv's chain (clone → hardlink → copy) because our mutability requirement rules out hardlinks as a useful intermediate.
+Simpler than uv's chain (clone → hardlink → copy) because the mutability requirement rules out hardlinks as a useful intermediate.
 
 ### Why Not Hardlinks?
 
@@ -154,7 +154,7 @@ pnpm and uv use hardlinks because their packages are immutable. For mutable skil
 - Per-agent customization would be impossible
 - Some editors break hardlinks on save (write-to-temp + rename), causing silent divergence that's hard to debug
 
-Hardlinks are the wrong tool for mutable content.
+Hardlinks are incompatible with mutable content.
 
 ### Why Not Symlinks?
 
@@ -166,7 +166,7 @@ Additionally:
 - Some tools don't follow symlinks
 - They create tight coupling between the store and agent directories
 
-Reflinks give us the independence of copies with the efficiency of links.
+Reflinks provide the independence of copies with the efficiency of links.
 
 ---
 
@@ -243,7 +243,7 @@ $ napoln add github.com/owner/repo/skills/my-skill
 2. Store
    - Hash skill contents → ab3f7c...
    - Copy to store: ~/.napoln/store/my-skill/1.2.0-ab3f7c/
-   - This is the pristine upstream — immutable from this point
+   - Pristine upstream snapshot — immutable from this point
 
 3. Detect agents
    - Scan for ~/.claude/, ~/.gemini/, ~/.pi/, ~/.agents/
@@ -373,7 +373,7 @@ $ napoln remove my-skill
 
 ### Algorithm
 
-We use a standard three-way merge (same algorithm as `git merge-file`):
+napoln uses a standard three-way merge (same algorithm as `git merge-file`):
 
 ```
          BASE (store pristine v1)
@@ -385,12 +385,12 @@ We use a standard three-way merge (same algorithm as `git merge-file`):
         MERGED
 ```
 
-Python has `difflib` in the standard library, but for robust three-way merge we should use a proper implementation. Options:
-- Shell out to `git merge-file` (available everywhere git is installed — and our users have git)
+Python has `difflib` in the standard library, but for robust three-way merge a proper implementation is needed. Options:
+- Shell out to `git merge-file`
 - Use `merge3` Python library
 - Implement using `difflib.SequenceMatcher`
 
-Given our users are developers with git installed, `git merge-file` is the pragmatic choice. It handles conflict markers, whitespace, and edge cases correctly. If git isn't available, fall back to a simpler Python implementation.
+`git merge-file` is the primary implementation. It handles conflict markers, whitespace, and edge cases correctly. When git is unavailable, napoln falls back to a `difflib`-based Python implementation.
 
 ### What Gets Merged
 
@@ -416,7 +416,7 @@ When three-way merge produces conflicts:
 Most users won't customize most skills. On upgrade:
 1. Diff working copy against store base
 2. If identical → just reflink the new version over the old. No merge needed.
-3. This should be the common case and should be instant.
+3. The common case. Instant.
 
 ---
 
@@ -427,25 +427,25 @@ Most users won't customize most skills. On upgrade:
 If `~/.napoln/store/` and `~/.claude/` are on different filesystems:
 - Reflink will fail (reflinks are same-filesystem only)
 - Fall back to copy
-- This is detected on first file and recorded in manifest
+- Detected on first file and recorded in manifest
 
 ### Disk Usage with Copies
 
-When the fallback is copy, we're duplicating content. For skills (typically a few KB of markdown + small scripts), this is negligible. A skill with 10KB of content across 3 agents = 30KB of copies + 10KB store = 40KB total. Not a concern.
+With the copy fallback, content is duplicated. For skills (typically a few KB of markdown + small scripts), the overhead is negligible. A skill with 10KB of content across 3 agents = 30KB of copies + 10KB store = 40KB total.
 
 ### User Edits the Store Directly
 
-The store is not exposed to users. It lives in `~/.napoln/store/` which is an implementation detail. If someone edits it, `napoln doctor` will detect the hash mismatch and warn.
+The store is an implementation detail at `~/.napoln/store/`. If edited directly, `napoln doctor` detects the hash mismatch and reports corruption.
 
 ### Agent Creates/Modifies a Skill
 
-Some agents (Gemini CLI's `skill-creator`) can create new skills. If an agent creates a skill in `.gemini/skills/new-skill/`, napoln doesn't know about it — it's not in the manifest. This is fine. napoln only manages skills it installed. `napoln status` could note untracked skills.
+Some agents (Gemini CLI's `skill-creator`) can create new skills. If an agent creates a skill in `.gemini/skills/new-skill/`, napoln ignores it — napoln only manages skills it installed. `napoln doctor` can report untracked skills.
 
-If an agent modifies a napoln-managed skill, the modification happens on the working copy. This is the intended workflow — `napoln upgrade` will merge the changes.
+If an agent modifies a napoln-managed skill, the modification happens on the working copy. `napoln upgrade` merges these changes with the new upstream version.
 
 ### Multiple Projects, Same Skill, Different Versions
 
-Project A wants `my-skill@1.2.0`, Project B wants `my-skill@1.3.0`. Both versions exist in the store. Each project's `.claude/skills/my-skill/` is reflinked from its respective store version. No conflict — the store is versioned.
+Project A wants `my-skill@1.2.0`, Project B wants `my-skill@1.3.0`. Both versions coexist in the store. Each project's `.claude/skills/my-skill/` is reflinked from its respective store version. The store's version-hash directory structure prevents conflicts.
 
 ### Windows
 
@@ -454,7 +454,7 @@ Windows support for reflinks:
 - **NTFS**: No reflink support. Fall back to copy.
 - **WSL**: APFS/btrfs behavior depending on filesystem.
 
-For Windows without Dev Drive, napoln falls back to copy. Skills are small; the disk cost is negligible.
+Without Dev Drive, napoln falls back to copy. The disk cost for skills (typically a few KB) is negligible.
 
 ---
 
@@ -492,7 +492,7 @@ Each stored version is identified by `{version}-{hash}` where hash = SHA-256 of:
 sort(all files in skill directory) → for each: "{relative_path}\0{file_contents}\0" → SHA-256
 ```
 
-This gives us:
+Properties:
 - **Integrity verification**: Know exactly what you have
 - **Deduplication**: Same content from different sources = same hash = one store entry
 - **Reproducibility**: Pin to a hash for bit-for-bit certainty
@@ -554,13 +554,13 @@ After upgrade, if there are conflicts:
 3. Run `napoln resolve skill-name`
 ```
 
-This skill is installed automatically when napoln is first run. It dogfoods the skill format — it's a regular skill managed by napoln itself.
+Installed automatically on first run. Managed as a regular skill — stored, placed, and upgradeable like any other.
 
 ---
 
 ## Telemetry
 
-Telemetry is a first-class concern, not an afterthought.
+Telemetry is explicit and auditable.
 
 ### What's Collected
 
@@ -571,7 +571,7 @@ Telemetry is a first-class concern, not an afterthought.
 enabled = true                    # explicit opt-in during first run
 anonymous_id = "uuid"             # random, not tied to identity
 
-# What we send:
+# Collected:
 # - Command name (add, upgrade, remove, search)
 # - Skill source (registry vs git)
 # - Agent targets
@@ -580,7 +580,7 @@ anonymous_id = "uuid"             # random, not tied to identity
 # - napoln version
 # - Success/failure
 #
-# What we never send:
+# Never collected:
 # - Skill names or content
 # - File paths
 # - Git URLs or repo names
@@ -633,19 +633,41 @@ napoln/
 ├── src/
 │   └── napoln/
 │       ├── __init__.py
-│       ├── cli.py                  # Click/Typer CLI entry point
-│       ├── manifest.py             # Manifest read/write (TOML)
-│       ├── store.py                # Content-addressed store operations
-│       ├── linker.py               # Reflink/copy with fallback chain
-│       ├── resolver.py             # Source resolution (git, registry, local)
-│       ├── merger.py               # Three-way merge (shells to git merge-file)
-│       ├── agents.py               # Agent detection and path configuration
-│       ├── hasher.py               # Content hashing for store addressing
-│       ├── telemetry.py            # Telemetry collection and reporting
-│       └── skills/                 # Bootstrap skills (bundled)
+│       ├── cli.py                  # Typer CLI entry point
+│       ├── errors.py               # Error types
+│       ├── output.py               # Terminal output formatting
+│       ├── telemetry.py            # Telemetry collection (isolated module)
+│       ├── commands/               # One module per CLI command
+│       │   ├── add.py
+│       │   ├── remove.py
+│       │   ├── upgrade.py
+│       │   ├── status.py
+│       │   ├── diff.py
+│       │   ├── resolve.py
+│       │   ├── sync.py
+│       │   ├── doctor.py
+│       │   ├── gc.py
+│       │   ├── list_cmd.py
+│       │   ├── config.py
+│       │   └── telemetry_cmd.py
+│       ├── core/                   # Core logic (no CLI dependency)
+│       │   ├── agents.py               # Agent detection, path configuration
+│       │   ├── hasher.py               # Content hashing (SHA-256)
+│       │   ├── linker.py               # Reflink/copy placement
+│       │   ├── manifest.py             # Manifest TOML read/write
+│       │   ├── merger.py               # Three-way merge (git merge-file + fallback)
+│       │   ├── resolver.py             # Source resolution (git, local, registry)
+│       │   ├── store.py                # Content-addressed store operations
+│       │   └── validator.py            # SKILL.md validation
+│       └── skills/                 # Bundled bootstrap skills
 │           └── napoln-manage/
 │               └── SKILL.md
 ├── tests/
+│   ├── unit/                   # Parameterized pytest tests per core module
+│   ├── integration/            # CLI tests via typer.testing.CliRunner
+│   ├── features/               # BDD .feature files (pytest-bdd)
+│   ├── steps/                  # BDD step definitions
+│   └── fixtures/               # Test skill directories
 └── README.md
 ```
 
@@ -659,7 +681,7 @@ These were open during design. Decisions are now implemented.
 
 2. **Lock file?** No. The manifest pins exact versions and content hashes, which provides sufficient reproducibility. A lock file adds value when there are transitive dependencies — skills don't have dependencies on other skills.
 
-3. **Skill authoring format:** Just a directory with `SKILL.md`. No `napoln.toml` required. Skill discovery is purely based on the Agent Skills standard. This means existing skill repos work without modification.
+3. **Skill authoring format:** A directory with `SKILL.md`. No `napoln.toml` required. Skill discovery is based on the Agent Skills standard. Existing skill repos work without modification.
 
 4. **Agent-specific frontmatter:** One SKILL.md serves all agents. Agents ignore fields they don't understand, so a single file can include a superset (`allowed-tools` for Claude Code, `disable-model-invocation` for pi). No overlay mechanism.
 
