@@ -21,35 +21,34 @@ def _abbreviate_path(path: str, home: str) -> str:
     return path
 
 
-AGENT_SHORT_NAMES: dict[str, str] = {
-    "claude-code": "claude",
-    "gemini-cli": "gemini",
-    "pi": "pi",
-    "codex": "codex",
-    "cursor": "cursor",
-}
-
-
-def _get_agent_names(entry: manifest.SkillEntry) -> list[str]:
-    """Get short agent names for a skill entry."""
-    names: list[str] = []
+def _get_agent_dirs(entry: manifest.SkillEntry, home: str) -> list[str]:
+    """Get unique agent directory basenames (e.g. .claude, .cursor, .agents)."""
     seen: set[str] = set()
-    for agent_id in entry.agents:
-        short = AGENT_SHORT_NAMES.get(agent_id, agent_id)
-        if short not in seen:
-            seen.add(short)
-            names.append(short)
-    return names
+    dirs: list[str] = []
+    for placement in entry.agents.values():
+        # Walk up from skill placement to find the agent root dir
+        # e.g. ~/.claude/skills/my-skill → .claude
+        parent = str(Path(placement.path).parent)  # ~/.claude/skills
+        short = _abbreviate_path(parent, home)  # ~/.claude/skills
+        # Extract the first path component after ~/
+        # e.g. "~/.claude/skills" → ".claude"
+        after_home = short.removeprefix("~/")
+        parts = after_home.split("/")
+        agent_dir = parts[0] if parts else short
+        if agent_dir not in seen:
+            seen.add(agent_dir)
+            dirs.append(agent_dir)
+    return dirs
 
 
-def _common_agents(mf: manifest.Manifest) -> list[str] | None:
-    """If all skills share the same agents, return them. Else None."""
+def _common_agent_dirs(mf: manifest.Manifest, home: str) -> list[str] | None:
+    """If all skills share the same agent dirs, return them. Else None."""
     common: list[str] | None = None
     for entry in mf.skills.values():
-        agents = _get_agent_names(entry)
+        dirs = _get_agent_dirs(entry, home)
         if common is None:
-            common = agents
-        elif agents != common:
+            common = dirs
+        elif dirs != common:
             return None
     return common
 
@@ -116,10 +115,10 @@ def _print_skills(
         else:
             output.header(f"{label}:")
     else:
-        common_agents = _common_agents(mf)
-        if common_agents:
-            agents_str = ", ".join(common_agents)
-            output.header(f"{label} (→ {agents_str}):")
+        common_dirs = _common_agent_dirs(mf, home)
+        if common_dirs:
+            dirs_str = ", ".join(common_dirs)
+            output.header(f"{label} (→ {dirs_str}):")
         else:
             output.header(f"{label}:")
 
@@ -142,9 +141,9 @@ def _print_skills(
                 dirs = _get_placement_dirs(entry, home)
                 suffix = "  → " + "  ".join(dirs)
         else:
-            if not _common_agents(mf):
-                agents = _get_agent_names(entry)
-                suffix = f"  → {', '.join(agents)}"
+            if not _common_agent_dirs(mf, home):
+                dirs = _get_agent_dirs(entry, home)
+                suffix = f"  → {', '.join(dirs)}"
 
         typer.echo(
             typer.style(name_col, bold=True)
