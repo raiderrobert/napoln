@@ -89,25 +89,21 @@ def install_summary(
     typer.echo()
 
 
-def skill_status_line(
+def skill_list_line(
     name: str,
     version: str,
     source: str,
-    agents: list[tuple[str, str, str]] | None = None,
-    scope: str = "global",
+    placements: str = "",
 ) -> None:
-    """Print a skill status line.
+    """Print a single skill line in list output.
 
     Args:
         name: Skill name.
         version: Version string.
-        source: Source identifier.
-        agents: List of (agent_id, path, status) tuples.
-        scope: "global" or "project".
+        source: Abbreviated source.
+        placements: Abbreviated placement paths.
     """
-    scope_tag = f"  [{scope}]" if scope == "project" else ""
-    typer.echo(typer.style(name, bold=True) + f" v{version} ({source}){scope_tag}")
-    if agents:
-        for agent_id, path, status in agents:
-            status_color = SUCCESS if status == "clean" else WARNING
-            typer.echo(f"  {agent_id:<14} {path:<40} " + typer.style(status, fg=status_color))
+    name_col = typer.style(f"  {name:<22}", bold=True)
+    version_col = f"v{version:<10}"
+    source_col = typer.style(f"{source:<24}", fg=DIM)
+    typer.echo(f"{name_col}{version_col}{source_col}{placements}")
