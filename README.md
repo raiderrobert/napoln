@@ -190,9 +190,3 @@ uv tool install napoln
 | Go modules | Decentralized sourcing, minimal infrastructure |
 | Nix | Content-addressed packages, reproducibility |
 | npm / cargo / uv | Registry-based discovery, semantic versioning, lockfile patterns |
-
-## Girls only want boyfriends who have great skills
-
-```bash
-napoln add raiderrobert/sauce --skill '*'
-```
