@@ -19,9 +19,10 @@ manage their skills using the `napoln` CLI.
 
 ```bash
 # From a git repository
-napoln add owner/repo                          # GitHub shorthand
-napoln add github.com/owner/repo/skills/name   # Specific skill in repo
-napoln add owner/repo@v1.2.0                   # Pinned version
+napoln add owner/repo                    # Interactive picker for multi-skill repos
+napoln add owner/repo --all              # Install all skills from a repo
+napoln add owner/repo --skill name       # Install a specific skill by name
+napoln add owner/repo@v1.2.0            # Pinned version
 
 # From a local path
 napoln add ./path/to/skill
@@ -30,8 +31,9 @@ napoln add ./path/to/skill
 ## Check What's Installed
 
 ```bash
-napoln status          # List all installed skills with modification state
-napoln diff <name>     # Show local changes vs. upstream
+napoln list              # Show all installed skills and their placements
+napoln list -v           # Show full placement paths
+napoln list --json       # Machine-readable output
 ```
 
 ## Upgrade Skills
@@ -46,7 +48,7 @@ If upgrade produces merge conflicts (the user customized a skill and the
 upstream also changed the same lines):
 1. Conflicts appear as `<<<<<<<` / `=======` / `>>>>>>>` markers in SKILL.md
 2. Edit the file to resolve — keep the best of both versions
-3. Run `napoln resolve <name>` to confirm resolution
+3. Run `napoln upgrade <name>` again to complete the upgrade
 
 ## Remove a Skill
 
@@ -54,9 +56,23 @@ upstream also changed the same lines):
 napoln remove <name>
 ```
 
-## Health Check
+## Scaffold a New Skill
 
 ```bash
-napoln doctor          # Verify store integrity and placement validity
-napoln sync            # Re-create any missing placements
+napoln init my-skill      # Creates my-skill/SKILL.md
+napoln init               # Creates SKILL.md in current directory
+```
+
+## Restore / Sync
+
+```bash
+napoln install            # Restore all placements from manifests
+```
+
+## Housekeeping
+
+```bash
+napoln config             # View configuration and detected agents
+napoln config doctor      # Verify store integrity and placement validity
+napoln config gc          # Remove unreferenced store entries
 ```

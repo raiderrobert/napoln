@@ -20,15 +20,18 @@ just check       # or: uv run ruff check src/ tests/ && uv run pytest
 
 ```
 src/napoln/
-├── cli.py              # Typer CLI entry point
+├── cli.py              # Typer CLI entry point (7 commands)
 ├── errors.py           # Error types
 ├── output.py           # Terminal output formatting
-├── telemetry.py        # Telemetry (opt-in only)
+├── prompts.py          # Interactive skill picker (questionary)
 ├── commands/           # One module per CLI command
 │   ├── add.py
 │   ├── remove.py
 │   ├── upgrade.py
-│   └── ...
+│   ├── list_cmd.py
+│   ├── install.py
+│   ├── init.py
+│   └── config.py       # Also contains doctor and gc subcommands
 ├── core/               # Core logic (no CLI dependency)
 │   ├── agents.py       # Agent detection, path configuration
 │   ├── hasher.py       # Content hashing (SHA-256)

@@ -51,7 +51,7 @@ def store_skill(
             raise StoreError(
                 f"Store corruption detected for {skill_name}/{version_dir_name}",
                 cause=f"Expected hash {content_hash}, got {existing_hash}",
-                fix="Run `napoln doctor` to diagnose and repair.",
+                fix="Run `napoln config doctor` to diagnose and repair.",
             )
         return store_path, content_hash
 
