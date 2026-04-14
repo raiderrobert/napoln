@@ -15,19 +15,17 @@ def _get_napoln_home() -> Path:
 
 
 def _abbreviate_path(path: str, home: str) -> str:
-    """Shorten an absolute path for display (e.g. ~/.claude/)."""
+    """Shorten an absolute path for display (e.g. ~/.claude/skills)."""
     if path.startswith(home):
         return "~" + path[len(home) :]
     return path
 
 
-def _get_placement_dirs(entry: manifest.SkillEntry) -> list[str]:
+def _get_placement_dirs(entry: manifest.SkillEntry, home: str) -> list[str]:
     """Extract unique shortened parent dirs from agent placements."""
-    home = str(Path.home())
     seen: set[str] = set()
     dirs: list[str] = []
     for placement in entry.agents.values():
-        # Go up one level from the skill-name dir to get the agent skills dir
         parent = str(Path(placement.path).parent)
         short = _abbreviate_path(parent, home)
         if short not in seen:
@@ -36,28 +34,78 @@ def _get_placement_dirs(entry: manifest.SkillEntry) -> list[str]:
     return dirs
 
 
+def _common_placements(mf: manifest.Manifest, home: str) -> list[str] | None:
+    """If all skills share the same placement dirs, return them. Else None."""
+    common: list[str] | None = None
+    for entry in mf.skills.values():
+        dirs = _get_placement_dirs(entry, home)
+        if common is None:
+            common = dirs
+        elif dirs != common:
+            return None
+    return common
+
+
+def _abbreviate_source(source: str) -> str:
+    """Shorten a source for display."""
+    if source == "bundled":
+        return source
+    # Local paths — show just the leaf directory
+    if source.startswith("/") or source.startswith("./"):
+        return Path(source).name
+    # For git sources like "github.com/owner/repo/skills/name", show "owner/repo"
+    parts = source.strip("/").split("/")
+    if len(parts) >= 3 and "." in parts[0]:
+        return f"{parts[1]}/{parts[2]}"
+    if len(parts) >= 2:
+        return f"{parts[0]}/{parts[1]}"
+    return source
+
+
 def _print_skills(
     mf: manifest.Manifest,
-    napoln_home: Path,
     label: str,
 ) -> None:
     """Print skills from a manifest under a section label."""
+    import typer
+
     if not mf.skills:
         return
 
-    output.header(f"{label}:")
-    for name, entry in sorted(mf.skills.items()):
-        source = entry.source
-        # Abbreviate source for display
-        if "/" in source:
-            # Show just the last two path components
-            parts = source.rstrip("/").split("/")
-            if len(parts) >= 2:
-                source = "/".join(parts[-2:])
+    home = str(Path.home())
+    common = _common_placements(mf, home)
 
-        dirs = _get_placement_dirs(entry)
-        dirs_str = "  ".join(dirs) if dirs else ""
-        output.skill_list_line(name, entry.version, source, dirs_str)
+    # Build header with common placements if they exist
+    if common:
+        dirs_str = "  ".join(common)
+        output.header(f"{label} (→ {dirs_str}):")
+    else:
+        output.header(f"{label}:")
+
+    # Calculate dynamic column widths
+    entries = sorted(mf.skills.items())
+    max_name = max(len(name) for name, _ in entries)
+    max_ver = max(len(entry.version) for _, entry in entries)
+
+    for name, entry in entries:
+        source = _abbreviate_source(entry.source)
+
+        name_col = f"  {name:<{max_name}}"
+        ver_col = f"  {entry.version:<{max_ver}}"
+        source_col = f"  {source}"
+
+        # If placements differ per skill, show them on this line
+        suffix = ""
+        if not common:
+            dirs = _get_placement_dirs(entry, home)
+            suffix = "  →  " + "  ".join(dirs)
+
+        typer.echo(
+            typer.style(name_col, bold=True)
+            + typer.style(ver_col, fg=typer.colors.BRIGHT_BLACK)
+            + typer.style(source_col, fg=typer.colors.BRIGHT_BLACK)
+            + suffix
+        )
 
 
 def _build_json(
@@ -116,14 +164,13 @@ def run_list(
     project_mf: manifest.Manifest | None = None
 
     # Read global manifest
+    global_path = manifest.get_manifest_path(napoln_home)
     if not project_only:
-        global_path = manifest.get_manifest_path(napoln_home)
         global_mf = manifest.read_manifest(global_path)
 
     # Read project manifest if it exists
     if not global_only:
         project_path = Path.cwd() / ".napoln" / "manifest.toml"
-        # Only read project manifest if it's NOT the same as the global manifest
         if project_path.exists() and project_path.resolve() != global_path.resolve():
             project_mf = manifest.read_manifest(project_path)
 
@@ -134,7 +181,7 @@ def run_list(
     has_any = False
 
     if global_mf and global_mf.skills:
-        _print_skills(global_mf, napoln_home, "Global")
+        _print_skills(global_mf, "Global")
         has_any = True
 
     if project_mf and project_mf.skills:
@@ -142,8 +189,9 @@ def run_list(
             import typer
 
             typer.echo()  # blank line between sections
-        project_label = f"Project ({Path.cwd()})"
-        _print_skills(project_mf, napoln_home, project_label)
+        cwd_short = _abbreviate_path(str(Path.cwd()), str(Path.home()))
+        project_label = f"Project ({cwd_short})"
+        _print_skills(project_mf, project_label)
         has_any = True
 
     if not has_any:
