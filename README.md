@@ -13,7 +13,9 @@ A package manager for [agent skills](https://agentskills.io/specification). Inst
 
 ## Install
 
-Requires Python 3.11+.
+Requires Python 3.11+. napoln is published on [PyPI](https://pypi.org/project/napoln/).
+
+Run without installing:
 
 ```bash
 uvx napoln add owner/repo
@@ -22,7 +24,9 @@ uvx napoln add owner/repo
 Or install globally:
 
 ```bash
-uv tool install napoln
+uv tool install napoln    # recommended
+pipx install napoln       # alternative
+pip install napoln        # plain pip
 ```
 
 ## Quick Start

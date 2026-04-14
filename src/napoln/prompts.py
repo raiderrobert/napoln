@@ -84,9 +84,17 @@ def pick_skills(choices: list[SkillChoice]) -> list[SkillChoice]:
             tokens.append(("class:text", f"  {short}"))
         options.append(questionary.Choice(title=tokens, value=c, checked=False))
 
+    style = questionary.Style(
+        [
+            ("selected", "fg:#5fafff bold"),
+            ("highlighted", "noreverse bold"),
+        ]
+    )
+
     selected = questionary.checkbox(
         "Select skills to install:",
         choices=options,
+        style=style,
     ).ask()
 
     if selected is None:
