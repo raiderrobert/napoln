@@ -20,7 +20,6 @@ def run_remove(
     agent_ids: list[str] | None = None,
     scope: str = "global",
     project_root: Path | None = None,
-    keep_store: bool = False,
     dry_run: bool = False,
 ) -> int:
     """Execute the remove command.

@@ -46,7 +46,7 @@ class MultipleSkillsError(ResolverError):
         names = ", ".join(d.name for d in sorted(skill_dirs))
         super().__init__(
             f"Found {len(skill_dirs)} skills: {names}",
-            fix="Use --skill <name> or --skill '*' to install all.",
+            fix="Use --skill <name> or --all to install all.",
         )
         self.repo_dir = repo_dir
         self.skill_dirs = skill_dirs

@@ -23,3 +23,4 @@ Thumbs.db
 .pi/skills/
 .coverage
 .pytest_cache/
+.napoln/
