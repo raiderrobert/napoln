@@ -76,11 +76,13 @@ def pick_skills(choices: list[SkillChoice]) -> list[SkillChoice]:
     options = []
     for c in choices:
         short = _short_description(c.description)
+        # Use token list for title so questionary doesn't apply
+        # class:selected/class:highlighted background to the entire line.
+        # Only the name gets highlighted; the description stays neutral.
+        tokens: list[tuple[str, str]] = [("class:text", f"{c.name:<{max_name}}")]
         if short:
-            label = f"{c.name:<{max_name}}  {short}"
-        else:
-            label = c.name
-        options.append(questionary.Choice(title=label, value=c, checked=False))
+            tokens.append(("class:text", f"  {short}"))
+        options.append(questionary.Choice(title=tokens, value=c, checked=False))
 
     selected = questionary.checkbox(
         "Select skills to install:",
