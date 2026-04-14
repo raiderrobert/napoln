@@ -5,24 +5,25 @@ import pytest
 from napoln.core.hasher import hash_skill, hash_skill_full
 
 
+@pytest.fixture
+def simple_skill(tmp_path):
+    """A minimal skill directory for hash tests."""
+    skill = tmp_path / "my-skill"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: my-skill\n---\n# Hello")
+    return skill
+
+
 class TestHashSkill:
     """Content hashing produces deterministic, content-sensitive hashes."""
 
-    def test_deterministic(self, tmp_path):
+    def test_deterministic(self, simple_skill):
         """Same content always produces the same hash."""
-        skill = tmp_path / "my-skill"
-        skill.mkdir()
-        (skill / "SKILL.md").write_text("---\nname: my-skill\n---\n# Hello")
+        assert hash_skill(simple_skill) == hash_skill(simple_skill)
 
-        assert hash_skill(skill) == hash_skill(skill)
-
-    def test_returns_7_chars(self, tmp_path):
+    def test_returns_7_chars(self, simple_skill):
         """Hash prefix is exactly 7 hex characters."""
-        skill = tmp_path / "my-skill"
-        skill.mkdir()
-        (skill / "SKILL.md").write_text("---\nname: my-skill\n---\n# Hello")
-
-        result = hash_skill(skill)
+        result = hash_skill(simple_skill)
         assert len(result) == 7
         assert all(c in "0123456789abcdef" for c in result)
 
@@ -35,28 +36,18 @@ class TestHashSkill:
         result = hash_skill_full(skill)
         assert len(result) == 64
 
-    def test_content_sensitive(self, tmp_path):
+    def test_content_sensitive(self, simple_skill):
         """Changing any file content changes the hash."""
-        skill = tmp_path / "my-skill"
-        skill.mkdir()
-        (skill / "SKILL.md").write_text("---\nname: my-skill\n---\n# V1")
-        hash_v1 = hash_skill(skill)
-
-        (skill / "SKILL.md").write_text("---\nname: my-skill\n---\n# V2")
-        hash_v2 = hash_skill(skill)
-
+        hash_v1 = hash_skill(simple_skill)
+        (simple_skill / "SKILL.md").write_text("---\nname: my-skill\n---\n# V2")
+        hash_v2 = hash_skill(simple_skill)
         assert hash_v1 != hash_v2
 
-    def test_excludes_napoln_provenance(self, tmp_path):
+    def test_excludes_napoln_provenance(self, simple_skill):
         """The .napoln provenance file is excluded from hashing."""
-        skill = tmp_path / "my-skill"
-        skill.mkdir()
-        (skill / "SKILL.md").write_text("---\nname: my-skill\n---\n# Hello")
-        hash_without = hash_skill(skill)
-
-        (skill / ".napoln").write_text('version = "1.0.0"')
-        hash_with = hash_skill(skill)
-
+        hash_without = hash_skill(simple_skill)
+        (simple_skill / ".napoln").write_text('version = "1.0.0"')
+        hash_with = hash_skill(simple_skill)
         assert hash_without == hash_with
 
     @pytest.mark.parametrize(

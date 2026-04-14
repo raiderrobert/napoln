@@ -5,43 +5,38 @@ import pytest
 from napoln.core.linker import clone_file, place_skill
 
 
+@pytest.fixture
+def store_skill(tmp_path):
+    """Create a store skill with SKILL.md and a script."""
+    store = tmp_path / "store" / "my-skill"
+    store.mkdir(parents=True)
+    (store / "SKILL.md").write_text("# Hello")
+    (store / "scripts").mkdir()
+    (store / "scripts" / "run.sh").write_text("#!/bin/bash")
+    return store
+
+
 class TestPlaceSkill:
     """Skill placement via reflink with copy fallback."""
 
-    def test_places_all_files(self, tmp_path):
+    def test_places_all_files(self, tmp_path, store_skill):
         """All files from store are placed in target directory."""
-        store = tmp_path / "store" / "my-skill"
-        store.mkdir(parents=True)
-        (store / "SKILL.md").write_text("# Hello")
-        (store / "scripts").mkdir()
-        (store / "scripts" / "run.sh").write_text("#!/bin/bash")
-
         target = tmp_path / "target" / "my-skill"
-        place_skill(store, target)
+        place_skill(store_skill, target)
 
         assert (target / "SKILL.md").read_text() == "# Hello"
         assert (target / "scripts" / "run.sh").read_text() == "#!/bin/bash"
 
-    def test_returns_link_mode(self, tmp_path):
+    def test_returns_link_mode(self, tmp_path, store_skill):
         """Returns 'clone' or 'copy' depending on filesystem support."""
-        store = tmp_path / "store" / "my-skill"
-        store.mkdir(parents=True)
-        (store / "SKILL.md").write_text("# Hello")
-
         target = tmp_path / "target" / "my-skill"
-        mode = place_skill(store, target)
-
+        mode = place_skill(store_skill, target)
         assert mode in ("clone", "copy")
 
-    def test_creates_parent_directories(self, tmp_path):
+    def test_creates_parent_directories(self, tmp_path, store_skill):
         """Target parent directories are created if they don't exist."""
-        store = tmp_path / "store" / "my-skill"
-        store.mkdir(parents=True)
-        (store / "SKILL.md").write_text("# Hello")
-
         target = tmp_path / "deep" / "nested" / "path" / "my-skill"
-        place_skill(store, target)
-
+        place_skill(store_skill, target)
         assert (target / "SKILL.md").exists()
 
     @pytest.mark.parametrize(
@@ -49,18 +44,14 @@ class TestPlaceSkill:
         [None, "# Old"],
         ids=["fresh", "overwrite"],
     )
-    def test_overwrite_behavior(self, tmp_path, existing_content):
-        store = tmp_path / "store" / "my-skill"
-        store.mkdir(parents=True)
-        (store / "SKILL.md").write_text("# New")
-
+    def test_overwrite_behavior(self, tmp_path, store_skill, existing_content):
         target = tmp_path / "target" / "my-skill"
         target.mkdir(parents=True)
         if existing_content:
             (target / "SKILL.md").write_text(existing_content)
 
-        place_skill(store, target)
-        assert (target / "SKILL.md").read_text() == "# New"
+        place_skill(store_skill, target)
+        assert (target / "SKILL.md").read_text() == "# Hello"
 
     def test_preserves_subdirectory_structure(self, tmp_path):
         """Nested directories are preserved during placement."""
@@ -84,31 +75,26 @@ class TestPlaceSkill:
 class TestCloneFile:
     """File-level clone with copy fallback."""
 
-    def test_content_matches(self, tmp_path):
+    @pytest.fixture
+    def src_file(self, tmp_path):
         src = tmp_path / "src.txt"
-        dst = tmp_path / "dst.txt"
         src.write_text("hello")
+        return src
 
-        clone_file(src, dst)
-
+    def test_content_matches(self, tmp_path, src_file):
+        dst = tmp_path / "dst.txt"
+        clone_file(src_file, dst)
         assert dst.read_text() == "hello"
 
-    def test_independence(self, tmp_path):
+    def test_independence(self, tmp_path, src_file):
         """Modifying the clone does not affect the original."""
-        src = tmp_path / "src.txt"
         dst = tmp_path / "dst.txt"
-        src.write_text("original")
-
-        clone_file(src, dst)
+        clone_file(src_file, dst)
         dst.write_text("modified")
+        assert src_file.read_text() == "hello"
 
-        assert src.read_text() == "original"
-
-    def test_returns_mode(self, tmp_path):
+    def test_returns_mode(self, tmp_path, src_file):
         """Returns 'clone' or 'copy'."""
-        src = tmp_path / "src.txt"
         dst = tmp_path / "dst.txt"
-        src.write_text("test")
-
-        mode = clone_file(src, dst)
+        mode = clone_file(src_file, dst)
         assert mode in ("clone", "copy")

@@ -59,25 +59,19 @@ class TestAgentConfig:
 class TestDetectAgents:
     """Agent auto-detection."""
 
-    def test_detects_claude(self, tmp_path):
-        (tmp_path / ".claude").mkdir()
+    @pytest.mark.parametrize(
+        "dot_dir, expected_agent_id",
+        [
+            (".claude", "claude-code"),
+            (".gemini", "gemini-cli"),
+            (".pi", "pi"),
+            (".cursor", "cursor"),
+        ],
+    )
+    def test_detects_agent_by_config_dir(self, tmp_path, dot_dir, expected_agent_id):
+        (tmp_path / dot_dir).mkdir()
         agents = detect_agents(tmp_path)
-        assert any(a.id == "claude-code" for a in agents)
-
-    def test_detects_gemini(self, tmp_path):
-        (tmp_path / ".gemini").mkdir()
-        agents = detect_agents(tmp_path)
-        assert any(a.id == "gemini-cli" for a in agents)
-
-    def test_detects_pi_dir(self, tmp_path):
-        (tmp_path / ".pi").mkdir()
-        agents = detect_agents(tmp_path)
-        assert any(a.id == "pi" for a in agents)
-
-    def test_detects_cursor(self, tmp_path):
-        (tmp_path / ".cursor").mkdir()
-        agents = detect_agents(tmp_path)
-        assert any(a.id == "cursor" for a in agents)
+        assert any(a.id == expected_agent_id for a in agents)
 
     def test_no_agents(self, tmp_path):
         agents = detect_agents(tmp_path)
