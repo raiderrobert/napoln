@@ -14,9 +14,19 @@ def _reflink_copy(src: Path, dst: Path) -> None:
     """Attempt a reflink (copy-on-write) clone of a single file."""
     try:
         import reflink as reflink_mod
+    except ImportError:
+        raise OSError("reflink not available")
 
+    try:
+        from reflink.error import ReflinkImpossibleError
+
+        _reflink_errors = (OSError, NotImplementedError, ReflinkImpossibleError)
+    except ImportError:
+        _reflink_errors = (OSError, NotImplementedError)
+
+    try:
         reflink_mod.reflink(str(src), str(dst))
-    except (ImportError, OSError, NotImplementedError):
+    except _reflink_errors:
         raise OSError("reflink not supported")
 
 
