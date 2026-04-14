@@ -176,6 +176,9 @@ def list_cmd(
     global_only: Annotated[
         bool, typer.Option("--global", "-g", help="Show only global skills.")
     ] = False,
+    paths: Annotated[
+        bool, typer.Option("--paths", help="Show placement paths instead of agent names.")
+    ] = False,
     json_out: Annotated[bool, typer.Option("--json", help="Machine-readable JSON output.")] = False,
 ) -> None:
     """Show installed skills and where they are placed."""
@@ -184,6 +187,7 @@ def list_cmd(
     exit_code = run_list(
         project_only=project,
         global_only=global_only,
+        show_paths=paths,
         json_output=json_out,
     )
     raise typer.Exit(code=exit_code)
