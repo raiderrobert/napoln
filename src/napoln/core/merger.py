@@ -12,8 +12,6 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from napoln.errors import MergeConflictError
-
 
 def has_git() -> bool:
     """Check if git is available."""
@@ -50,11 +48,16 @@ def _git_merge_file(ours: Path, base: Path, theirs: Path) -> tuple[str, bool]:
 
         result = subprocess.run(
             [
-                "git", "merge-file", "-p",
+                "git",
+                "merge-file",
+                "-p",
                 "--marker-size=7",
-                "-L", "local (your changes)",
-                "-L", "base",
-                "-L", f"upstream",
+                "-L",
+                "local (your changes)",
+                "-L",
+                "base",
+                "-L",
+                "upstream",
                 str(tmp_ours),
                 str(tmp_base),
                 str(tmp_theirs),
@@ -99,15 +102,8 @@ def _python_merge_file(ours: Path, base: Path, theirs: Path) -> tuple[str, bool]
 
 def _line_merge(ours: str, base: str, theirs: str) -> tuple[str, bool]:
     """Simple line-based three-way merge with conflict markers."""
-    import difflib
-
     ours_lines = ours.splitlines(keepends=True)
-    base_lines = base.splitlines(keepends=True)
     theirs_lines = theirs.splitlines(keepends=True)
-
-    # Get diffs
-    ours_diff = list(difflib.unified_diff(base_lines, ours_lines, n=0))
-    theirs_diff = list(difflib.unified_diff(base_lines, theirs_lines, n=0))
 
     if ours == theirs:
         # Both made the same change

@@ -9,7 +9,6 @@ from napoln.core.resolver import (
     discover_skills_in_repo,
     parse_source,
     resolve_git,
-    resolve_local,
 )
 from napoln.core.validator import validate_skill
 from napoln.errors import ResolverError
@@ -17,6 +16,7 @@ from napoln.errors import ResolverError
 
 def _get_napoln_home() -> Path:
     import os
+
     return Path(os.environ.get("NAPOLN_HOME", Path.home() / ".napoln"))
 
 
@@ -37,7 +37,7 @@ def run_list(source: str) -> int:
     if parsed.source_type == "registry":
         output.error(
             "Registry sources are not yet available.",
-            fix=f"Use a git source or local path.",
+            fix="Use a git source or local path.",
         )
         return 1
 
@@ -52,7 +52,11 @@ def run_list(source: str) -> int:
             cache_dir = napoln_home / "cache"
             cache_dir.mkdir(parents=True, exist_ok=True)
             resolved = resolve_git(parsed, cache_dir)
-            base_dir = resolved.skill_dir.parent if (resolved.skill_dir / "SKILL.md").exists() else resolved.skill_dir
+            base_dir = (
+                resolved.skill_dir.parent
+                if (resolved.skill_dir / "SKILL.md").exists()
+                else resolved.skill_dir
+            )
         else:
             output.error(f"Unknown source type: {parsed.source_type}")
             return 1

@@ -8,7 +8,6 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -28,12 +27,8 @@ class ResolvedSource:
 
 
 # Git shorthand patterns
-_GITHUB_SHORT = re.compile(
-    r"^([a-zA-Z0-9._-]+)/([a-zA-Z0-9._-]+)(?:/(.+?))?(?:@(.+))?$"
-)
-_GIT_URL = re.compile(
-    r"^(?:https?://|git@)([^/]+)[/:](.+?)(?:\.git)?$"
-)
+_GITHUB_SHORT = re.compile(r"^([a-zA-Z0-9._-]+)/([a-zA-Z0-9._-]+)(?:/(.+?))?(?:@(.+))?$")
+_GIT_URL = re.compile(r"^(?:https?://|git@)([^/]+)[/:](.+?)(?:\.git)?$")
 _DOMAIN_PATH = re.compile(
     r"^([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/([a-zA-Z0-9._-]+)/([a-zA-Z0-9._-]+)(?:/(.+?))?(?:@(.+))?$"
 )
@@ -203,7 +198,9 @@ def resolve_local(parsed: ParsedSource) -> ResolvedSource:
 
 
 def resolve_git(
-    parsed: ParsedSource, cache_dir: Path, skill_filter: str | None = None,
+    parsed: ParsedSource,
+    cache_dir: Path,
+    skill_filter: str | None = None,
 ) -> ResolvedSource | list[ResolvedSource]:
     """Resolve a git source by cloning the repo.
 
@@ -285,14 +282,16 @@ def resolve_git(
             version = _resolve_version(sd, ref, clone_dir)
             rel = sd.relative_to(clone_dir)
             sid = f"{source_id}/{rel}" if str(rel) != "." else source_id
-            results.append(ResolvedSource(
-                source_type="git",
-                source_id=sid,
-                skill_dir=sd,
-                version=version,
-                cleanup=False,
-                skill_name=sd.name,
-            ))
+            results.append(
+                ResolvedSource(
+                    source_type="git",
+                    source_id=sid,
+                    skill_dir=sd,
+                    version=version,
+                    cleanup=False,
+                    skill_name=sd.name,
+                )
+            )
         if len(results) == 1:
             return results[0]
         return results
@@ -437,10 +436,7 @@ def _find_skill_in_repo(repo_dir: Path, subpath: str) -> Path:
     # Convention: skills/ directory
     skills_dir = repo_dir / "skills"
     if skills_dir.is_dir():
-        skill_dirs = [
-            d for d in skills_dir.iterdir()
-            if d.is_dir() and (d / "SKILL.md").exists()
-        ]
+        skill_dirs = [d for d in skills_dir.iterdir() if d.is_dir() and (d / "SKILL.md").exists()]
         if len(skill_dirs) == 1:
             return skill_dirs[0]
         if len(skill_dirs) > 1:
@@ -449,7 +445,7 @@ def _find_skill_in_repo(repo_dir: Path, subpath: str) -> Path:
                 f"Multiple skills found: {names}",
                 fix=(
                     "Specify which skill with --skill <name> or use the full path:\n"
-                    f"  napoln add <source>/skills/<name>"
+                    "  napoln add <source>/skills/<name>"
                 ),
             )
 

@@ -21,8 +21,13 @@ class TestMergeFile:
         ids=["no-changes", "only-upstream", "only-local"],
     )
     def test_one_side_or_no_changes(
-        self, tmp_path, ours_text, base_text, theirs_text,
-        expect_conflicts, expect_contains,
+        self,
+        tmp_path,
+        ours_text,
+        base_text,
+        theirs_text,
+        expect_conflicts,
+        expect_contains,
     ):
         (tmp_path / "ours").write_text(ours_text)
         (tmp_path / "base").write_text(base_text)
@@ -78,7 +83,9 @@ class TestMergeSkill:
 
     def test_fast_forward_unmodified(self, merge_dirs):
         """Unmodified files are fast-forwarded to new upstream."""
-        merge_dirs["base"] / "SKILL.md" and (merge_dirs["base"] / "SKILL.md").write_text("V1 content")
+        merge_dirs["base"] / "SKILL.md" and (merge_dirs["base"] / "SKILL.md").write_text(
+            "V1 content"
+        )
         (merge_dirs["working"] / "SKILL.md").write_text("V1 content")
         (merge_dirs["new"] / "SKILL.md").write_text("V2 content")
 

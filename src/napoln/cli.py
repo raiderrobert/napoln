@@ -5,7 +5,6 @@ Built with Typer for type-hint based argument parsing.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import Annotated, Optional
 
@@ -33,8 +32,10 @@ def _version_callback(value: bool) -> None:
 @app.callback()
 def main(
     version: Annotated[
-        bool, typer.Option("--version", callback=_version_callback, is_eager=True,
-                           help="Show napoln version.")
+        bool,
+        typer.Option(
+            "--version", callback=_version_callback, is_eager=True, help="Show napoln version."
+        ),
     ] = False,
 ) -> None:
     """napoln — A package manager for agent skills."""
@@ -46,14 +47,22 @@ def main(
 @app.command()
 def add(
     source: Annotated[str, typer.Argument(help="Git source, local path, or registry name.")],
-    agents: Annotated[Optional[str], typer.Option("--agents", help="Target agents (comma-separated).")] = None,
+    agents: Annotated[
+        Optional[str], typer.Option("--agents", help="Target agents (comma-separated).")
+    ] = None,
     version: Annotated[Optional[str], typer.Option("--version", help="Version constraint.")] = None,
     project: Annotated[bool, typer.Option("--project", help="Install to current project.")] = False,
-    skill: Annotated[Optional[str], typer.Option("--skill", help="Select specific skill from multi-skill repo.")] = None,
+    skill: Annotated[
+        Optional[str], typer.Option("--skill", help="Select specific skill from multi-skill repo.")
+    ] = None,
     name: Annotated[Optional[str], typer.Option("--name", help="Override skill name.")] = None,
-    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would change without applying.")] = False,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Show what would change without applying.")
+    ] = False,
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Verbose output.")] = False,
-    quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Suppress non-error output.")] = False,
+    quiet: Annotated[
+        bool, typer.Option("--quiet", "-q", help="Suppress non-error output.")
+    ] = False,
     json_out: Annotated[bool, typer.Option("--json", help="Machine-readable JSON output.")] = False,
 ) -> None:
     """Install a skill from a git source or local path."""
@@ -82,9 +91,13 @@ def add(
 @app.command()
 def remove(
     name: Annotated[str, typer.Argument(help="Skill name to remove.")],
-    agents: Annotated[Optional[str], typer.Option("--agents", help="Remove from specific agents only.")] = None,
+    agents: Annotated[
+        Optional[str], typer.Option("--agents", help="Remove from specific agents only.")
+    ] = None,
     project: Annotated[bool, typer.Option("--project", help="Remove from project scope.")] = False,
-    keep_store: Annotated[bool, typer.Option("--keep-store", help="Don't mark store entry for GC.")] = False,
+    keep_store: Annotated[
+        bool, typer.Option("--keep-store", help="Don't mark store entry for GC.")
+    ] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would change.")] = False,
 ) -> None:
     """Remove an installed skill."""
@@ -110,12 +123,22 @@ def remove(
 
 @app.command()
 def upgrade(
-    name: Annotated[Optional[str], typer.Argument(help="Skill name to upgrade (all if omitted).")] = None,
-    version: Annotated[Optional[str], typer.Option("--version", help="Upgrade to specific version.")] = None,
-    agents: Annotated[Optional[str], typer.Option("--agents", help="Upgrade for specific agents only.")] = None,
+    name: Annotated[
+        Optional[str], typer.Argument(help="Skill name to upgrade (all if omitted).")
+    ] = None,
+    version: Annotated[
+        Optional[str], typer.Option("--version", help="Upgrade to specific version.")
+    ] = None,
+    agents: Annotated[
+        Optional[str], typer.Option("--agents", help="Upgrade for specific agents only.")
+    ] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would change.")] = False,
-    force: Annotated[bool, typer.Option("--force", help="Replace working copies without merging.")] = False,
-    project: Annotated[bool, typer.Option("--project", help="Upgrade project-scoped skills.")] = False,
+    force: Annotated[
+        bool, typer.Option("--force", help="Replace working copies without merging.")
+    ] = False,
+    project: Annotated[
+        bool, typer.Option("--project", help="Upgrade project-scoped skills.")
+    ] = False,
 ) -> None:
     """Upgrade one or all skills."""
     from napoln.commands.upgrade import run_upgrade
@@ -160,7 +183,9 @@ def status(
 @app.command()
 def diff(
     name: Annotated[str, typer.Argument(help="Skill name to diff.")],
-    agent: Annotated[Optional[str], typer.Option("--agent", help="Diff for specific agent only.")] = None,
+    agent: Annotated[
+        Optional[str], typer.Option("--agent", help="Diff for specific agent only.")
+    ] = None,
     project: Annotated[bool, typer.Option("--project", help="Diff project-scoped skill.")] = False,
 ) -> None:
     """Show local modifications vs. upstream."""
@@ -179,8 +204,12 @@ def diff(
 @app.command()
 def resolve(
     name: Annotated[str, typer.Argument(help="Skill name to mark as resolved.")],
-    agent: Annotated[Optional[str], typer.Option("--agent", help="Resolve for specific agent only.")] = None,
-    project: Annotated[bool, typer.Option("--project", help="Resolve project-scoped skill.")] = False,
+    agent: Annotated[
+        Optional[str], typer.Option("--agent", help="Resolve for specific agent only.")
+    ] = None,
+    project: Annotated[
+        bool, typer.Option("--project", help="Resolve project-scoped skill.")
+    ] = False,
 ) -> None:
     """Mark a skill's merge conflicts as resolved."""
     from napoln.commands.resolve import run_resolve
@@ -216,7 +245,9 @@ def sync(
 @app.command()
 def install(
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would be synced.")] = False,
-    project: Annotated[bool, typer.Option("--project", help="Install project-scoped skills.")] = False,
+    project: Annotated[
+        bool, typer.Option("--project", help="Install project-scoped skills.")
+    ] = False,
 ) -> None:
     """Alias for sync. Reads manifest and ensures all placements exist."""
     from napoln.commands.sync import run_sync
@@ -233,7 +264,9 @@ def install(
 
 @app.command()
 def doctor(
-    project: Annotated[bool, typer.Option("--project", help="Check project-scoped skills.")] = False,
+    project: Annotated[
+        bool, typer.Option("--project", help="Check project-scoped skills.")
+    ] = False,
     json_out: Annotated[bool, typer.Option("--json", help="Machine-readable JSON output.")] = False,
 ) -> None:
     """Health check."""
@@ -262,8 +295,10 @@ def gc(
     project_root = Path.cwd() if project else None
 
     exit_code = run_gc(
-        dry_run=dry_run, clean_cache=all_cache,
-        scope=scope, project_root=project_root,
+        dry_run=dry_run,
+        clean_cache=all_cache,
+        scope=scope,
+        project_root=project_root,
     )
     raise typer.Exit(code=exit_code)
 
@@ -296,6 +331,7 @@ def config_default(
     """View or edit configuration."""
     if ctx.invoked_subcommand is None:
         from napoln.commands.config import run_config_show
+
         exit_code = run_config_show()
         raise typer.Exit(code=exit_code)
 
@@ -307,6 +343,7 @@ def config_set(
 ) -> None:
     """Set a configuration value."""
     from napoln.commands.config import run_config_set
+
     exit_code = run_config_set(key, value)
     raise typer.Exit(code=exit_code)
 
@@ -322,6 +359,7 @@ app.add_typer(telemetry_app, name="telemetry")
 def telemetry_status() -> None:
     """Show telemetry state."""
     from napoln.commands.telemetry_cmd import run_telemetry_status
+
     exit_code = run_telemetry_status()
     raise typer.Exit(code=exit_code)
 
@@ -330,6 +368,7 @@ def telemetry_status() -> None:
 def telemetry_enable() -> None:
     """Enable telemetry."""
     from napoln.commands.telemetry_cmd import run_telemetry_enable
+
     exit_code = run_telemetry_enable()
     raise typer.Exit(code=exit_code)
 
@@ -338,6 +377,7 @@ def telemetry_enable() -> None:
 def telemetry_disable() -> None:
     """Disable telemetry."""
     from napoln.commands.telemetry_cmd import run_telemetry_disable
+
     exit_code = run_telemetry_disable()
     raise typer.Exit(code=exit_code)
 
@@ -346,6 +386,7 @@ def telemetry_disable() -> None:
 def telemetry_show_data() -> None:
     """Show what data would be sent."""
     from napoln.commands.telemetry_cmd import run_telemetry_show_data
+
     exit_code = run_telemetry_show_data()
     raise typer.Exit(code=exit_code)
 

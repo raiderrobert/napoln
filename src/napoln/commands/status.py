@@ -6,12 +6,12 @@ from pathlib import Path
 
 from napoln import output
 from napoln.core import manifest
-from napoln.core.hasher import hash_skill
 from napoln.core.store import get_stored_skill
 
 
 def _get_napoln_home() -> Path:
     import os
+
     return Path(os.environ.get("NAPOLN_HOME", Path.home() / ".napoln"))
 
 
@@ -65,9 +65,7 @@ def run_status(
     if json_output:
         data = {}
         for name, entry in sorted(mf.skills.items()):
-            store_path = get_stored_skill(
-                name, entry.version, entry.store_hash, napoln_home
-            )
+            store_path = get_stored_skill(name, entry.version, entry.store_hash, napoln_home)
             agents_data = {}
             for agent_id, placement in entry.agents.items():
                 placement_path = Path(placement.path).expanduser()
@@ -90,9 +88,7 @@ def run_status(
         return 0
 
     for name, entry in sorted(mf.skills.items()):
-        store_path = get_stored_skill(
-            name, entry.version, entry.store_hash, napoln_home
-        )
+        store_path = get_stored_skill(name, entry.version, entry.store_hash, napoln_home)
         agents_info = []
         for agent_id, placement in sorted(entry.agents.items()):
             placement_path = Path(placement.path).expanduser()
@@ -100,7 +96,9 @@ def run_status(
             agents_info.append((agent_id, str(placement_path), status))
 
         output.skill_status_line(
-            name, entry.version, entry.source,
+            name,
+            entry.version,
+            entry.source,
             agents=agents_info,
             scope=list(entry.agents.values())[0].scope if entry.agents else "global",
         )

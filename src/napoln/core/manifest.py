@@ -212,8 +212,9 @@ def remove_skill_from_manifest(
     return manifest
 
 
-def get_manifest_path(napoln_home: Path, scope: str = "global",
-                      project_root: Path | None = None) -> Path:
+def get_manifest_path(
+    napoln_home: Path, scope: str = "global", project_root: Path | None = None
+) -> Path:
     """Get the manifest file path for a given scope.
 
     Args:

@@ -2,7 +2,7 @@
 
 import pytest
 
-from napoln.core.validator import ValidationLevel, validate_skill
+from napoln.core.validator import validate_skill
 
 
 class TestValidateSkill:
@@ -68,16 +68,21 @@ class TestValidateSkill:
             ("has_underscore", ["invalid characters"]),
         ],
         ids=[
-            "valid", "min-len", "max-len", "too-long", "uppercase",
-            "leading-hyphen", "trailing-hyphen", "double-hyphen", "underscore",
+            "valid",
+            "min-len",
+            "max-len",
+            "too-long",
+            "uppercase",
+            "leading-hyphen",
+            "trailing-hyphen",
+            "double-hyphen",
+            "underscore",
         ],
     )
     def test_name_validation(self, tmp_path, name, expected_warnings):
         skill_dir = tmp_path / name
         skill_dir.mkdir()
-        (skill_dir / "SKILL.md").write_text(
-            f"---\nname: {name}\ndescription: Test\n---\n# Body"
-        )
+        (skill_dir / "SKILL.md").write_text(f"---\nname: {name}\ndescription: Test\n---\n# Body")
 
         result = validate_skill(skill_dir)
         warning_messages = [w.message for w in result.warnings]

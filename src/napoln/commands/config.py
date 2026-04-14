@@ -12,6 +12,7 @@ from napoln import output
 
 def _get_napoln_home() -> Path:
     import os
+
     return Path(os.environ.get("NAPOLN_HOME", Path.home() / ".napoln"))
 
 
@@ -26,6 +27,7 @@ def run_config_show() -> int:
 
     content = config_path.read_text(encoding="utf-8")
     import typer
+
     typer.echo(content)
     return 0
 

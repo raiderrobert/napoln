@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 from pytest_bdd import given, parsers, scenario, then, when
 from typer.testing import CliRunner
 
@@ -39,17 +38,13 @@ def local_skill_exists(env: NapolnTestEnv):
 
 @when("I run napoln add with the local skill", target_fixture="result_env")
 def run_add(env: NapolnTestEnv, cli_runner: CliRunner):
-    env.result = cli_runner.invoke(
-        app, ["add", str(env.skill_dir)], env=env.env_vars
-    )
+    env.result = cli_runner.invoke(app, ["add", str(env.skill_dir)], env=env.env_vars)
     return env
 
 
 @when("I run napoln add with dry run", target_fixture="result_env")
 def run_add_dry(env: NapolnTestEnv, cli_runner: CliRunner):
-    env.result = cli_runner.invoke(
-        app, ["add", str(env.skill_dir), "--dry-run"], env=env.env_vars
-    )
+    env.result = cli_runner.invoke(app, ["add", str(env.skill_dir), "--dry-run"], env=env.env_vars)
     return env
 
 
@@ -72,6 +67,7 @@ def skill_placed(result_env: NapolnTestEnv):
 @then("the manifest contains the skill")
 def manifest_has_skill(result_env: NapolnTestEnv):
     import tomllib
+
     mf_path = result_env.napoln_home / "manifest.toml"
     assert mf_path.exists()
     data = tomllib.loads(mf_path.read_text())

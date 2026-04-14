@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
 from napoln import output
@@ -13,6 +12,7 @@ from napoln.errors import ResolverError
 
 def _get_napoln_home() -> Path:
     import os
+
     return Path(os.environ.get("NAPOLN_HOME", Path.home() / ".napoln"))
 
 
@@ -55,8 +55,18 @@ def run_upgrade(
 
         entry = mf.skills[skill_name]
         code = _upgrade_skill(
-            skill_name, entry, napoln_home, home, mf, manifest_path,
-            version_constraint, agent_ids, dry_run, force, scope, project_root,
+            skill_name,
+            entry,
+            napoln_home,
+            home,
+            mf,
+            manifest_path,
+            version_constraint,
+            agent_ids,
+            dry_run,
+            force,
+            scope,
+            project_root,
         )
         if code > exit_code:
             exit_code = code
@@ -99,9 +109,7 @@ def _upgrade_skill(
             if isinstance(result, list):
                 match = [r for r in result if r.skill_name == skill_name]
                 if not match:
-                    output.error(
-                        f"Skill '{skill_name}' not found in resolved sources."
-                    )
+                    output.error(f"Skill '{skill_name}' not found in resolved sources.")
                     return 1
                 resolved = match[0]
             else:
@@ -115,6 +123,7 @@ def _upgrade_skill(
 
     # Check if there's actually a new version
     from napoln.core.hasher import hash_skill
+
     new_hash = hash_skill(resolved.skill_dir)
     if new_hash == entry.store_hash and not force:
         output.info(f"'{skill_name}' is already up to date (v{entry.version}).")
@@ -135,9 +144,7 @@ def _upgrade_skill(
         output.would(f"store '{skill_name}' v{new_version}")
 
     # Get old store base
-    old_store = store.get_stored_skill(
-        skill_name, entry.version, entry.store_hash, napoln_home
-    )
+    old_store = store.get_stored_skill(skill_name, entry.version, entry.store_hash, napoln_home)
 
     # Merge/replace placements
     agents_to_upgrade = agent_ids if agent_ids else list(entry.agents.keys())
@@ -160,24 +167,20 @@ def _upgrade_skill(
 
         if force or not old_store or not placement_path.exists():
             # Force or no base for merge — full replace
-            link_mode = linker.place_skill(new_store_path, placement_path)
+            linker.place_skill(new_store_path, placement_path)
             output.success(f"Replaced '{skill_name}' at {placement_path}")
         else:
             # Three-way merge
-            updated, conflicted = merger.merge_skill(
-                placement_path, old_store, new_store_path
-            )
+            updated, conflicted = merger.merge_skill(placement_path, old_store, new_store_path)
             if conflicted:
                 has_conflicts = True
                 placement_conflicted = True
                 output.warning(
-                    f"Conflicts in '{skill_name}' at {placement_path}: "
-                    + ", ".join(conflicted)
+                    f"Conflicts in '{skill_name}' at {placement_path}: " + ", ".join(conflicted)
                 )
             elif updated:
                 output.success(
-                    f"Merged '{skill_name}' at {placement_path} "
-                    f"({len(updated)} files updated)"
+                    f"Merged '{skill_name}' at {placement_path} ({len(updated)} files updated)"
                 )
             else:
                 output.info(f"No changes needed for '{skill_name}' at {placement_path}")
@@ -185,9 +188,13 @@ def _upgrade_skill(
         # Only update provenance for clean placements
         if not placement_conflicted:
             from napoln.commands.add import _write_provenance
+
             _write_provenance(
-                placement_path, entry.source, new_version,
-                new_content_hash, placement.link_mode,
+                placement_path,
+                entry.source,
+                new_version,
+                new_content_hash,
+                placement.link_mode,
             )
 
     if not dry_run:
@@ -202,6 +209,7 @@ def _upgrade_skill(
             entry.version = new_version
             entry.store_hash = new_content_hash
             from napoln.core.manifest import _now_iso
+
             entry.updated = _now_iso()
             manifest.write_manifest(mf, manifest_path)
             output.success(f"Upgraded '{skill_name}' to v{new_version}")

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
@@ -52,7 +51,7 @@ def skill_builder(tmp_path: Path):
 
         frontmatter = (
             f"---\nname: {name}\ndescription: {description}\n"
-            f"metadata:\n  version: \"{version}\"\n---\n\n{body}"
+            f'metadata:\n  version: "{version}"\n---\n\n{body}'
         )
         (skill_dir / "SKILL.md").write_text(frontmatter)
 

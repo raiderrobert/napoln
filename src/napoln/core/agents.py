@@ -25,8 +25,9 @@ class AgentConfig:
     def project_path(self, project_root: Path) -> Path:
         return project_root / self.project_skill_dir
 
-    def skill_path(self, home: Path, skill_name: str, scope: str = "global",
-                   project_root: Path | None = None) -> Path:
+    def skill_path(
+        self, home: Path, skill_name: str, scope: str = "global", project_root: Path | None = None
+    ) -> Path:
         if scope == "project" and project_root:
             return self.project_path(project_root) / skill_name
         return self.global_path(home) / skill_name
@@ -77,8 +78,9 @@ def _check_on_path(command: str) -> bool:
     return shutil.which(command) is not None
 
 
-def detect_agents(home: Path, project_root: Path | None = None,
-                  scope: str = "global") -> list[AgentConfig]:
+def detect_agents(
+    home: Path, project_root: Path | None = None, scope: str = "global"
+) -> list[AgentConfig]:
     """Auto-detect installed agents.
 
     For global scope, checks:
@@ -122,9 +124,7 @@ def detect_agents(home: Path, project_root: Path | None = None,
         if _check_dir_exists(project_root / ".gemini"):
             detected.append(AGENTS["gemini-cli"])
 
-        if _check_dir_exists(project_root / ".pi") or _check_dir_exists(
-            project_root / ".agents"
-        ):
+        if _check_dir_exists(project_root / ".pi") or _check_dir_exists(project_root / ".agents"):
             detected.append(AGENTS["pi"])
 
         # Codex and Cursor share .agents/ at project level
@@ -137,9 +137,9 @@ def detect_agents(home: Path, project_root: Path | None = None,
     return detected
 
 
-def resolve_agents(agent_ids: list[str] | None, home: Path,
-                   project_root: Path | None = None,
-                   scope: str = "global") -> list[AgentConfig]:
+def resolve_agents(
+    agent_ids: list[str] | None, home: Path, project_root: Path | None = None, scope: str = "global"
+) -> list[AgentConfig]:
     """Resolve agent list from explicit IDs or auto-detection.
 
     Args:
@@ -158,10 +158,7 @@ def resolve_agents(agent_ids: list[str] | None, home: Path,
         configs = []
         for aid in agent_ids:
             if aid not in AGENTS:
-                raise ValueError(
-                    f"Unknown agent: {aid}. "
-                    f"Available: {', '.join(AGENTS.keys())}"
-                )
+                raise ValueError(f"Unknown agent: {aid}. Available: {', '.join(AGENTS.keys())}")
             configs.append(AGENTS[aid])
         return configs
 
@@ -169,8 +166,11 @@ def resolve_agents(agent_ids: list[str] | None, home: Path,
 
 
 def deduplicate_placements(
-    agents: list[AgentConfig], skill_name: str, home: Path,
-    scope: str = "global", project_root: Path | None = None,
+    agents: list[AgentConfig],
+    skill_name: str,
+    home: Path,
+    scope: str = "global",
+    project_root: Path | None = None,
 ) -> dict[Path, list[AgentConfig]]:
     """Group agents by their target path to avoid duplicate placements.
 
