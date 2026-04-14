@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 
 class NapolnError(Exception):
     """Base error for all napoln errors."""
@@ -34,6 +36,20 @@ class PlacementError(NapolnError):
 
 class ResolverError(NapolnError):
     """Raised when source resolution fails."""
+
+
+class MultipleSkillsError(ResolverError):
+    """Raised when a repo has multiple skills and no filter was given."""
+
+    def __init__(self, repo_dir: Path, skill_dirs: list[Path]):
+
+        names = ", ".join(d.name for d in sorted(skill_dirs))
+        super().__init__(
+            f"Found {len(skill_dirs)} skills: {names}",
+            fix="Use --skill <name> or --skill '*' to install all.",
+        )
+        self.repo_dir = repo_dir
+        self.skill_dirs = skill_dirs
 
 
 class MergeConflictError(NapolnError):
