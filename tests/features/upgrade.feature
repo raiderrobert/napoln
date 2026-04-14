@@ -34,6 +34,7 @@ Feature: Upgrade with three-way merge
     And upstream has released version "2.0.0" with different changes on line 5
     When I run napoln upgrade test-skill
     Then the Claude Code placement contains conflict markers
+    And the manifest version is "1.0.0"
     And the output contains "Conflicts"
     And the exit code is 2
 
@@ -54,4 +55,5 @@ Feature: Upgrade with three-way merge
     And upstream has released version "2.0.0" with an updated script
     When I run napoln upgrade test-skill
     Then the script in the Claude Code placement retains local changes
+    And the manifest version is "1.0.0"
     And the exit code is 2

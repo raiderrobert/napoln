@@ -92,7 +92,20 @@ def _upgrade_skill(
             resolved = resolve_local(parsed)
         elif parsed.source_type == "git":
             cache_dir = napoln_home / "cache"
-            resolved = resolve_git(parsed, cache_dir)
+            result = resolve_git(parsed, cache_dir)
+            # resolve_git can return a list for multi-skill repos;
+            # during upgrade the manifest source already has a path,
+            # so we always expect a single result.
+            if isinstance(result, list):
+                match = [r for r in result if r.skill_name == skill_name]
+                if not match:
+                    output.error(
+                        f"Skill '{skill_name}' not found in resolved sources."
+                    )
+                    return 1
+                resolved = match[0]
+            else:
+                resolved = result
         else:
             output.info(f"Cannot upgrade '{skill_name}': unsupported source type.")
             return 0
@@ -136,6 +149,7 @@ def _upgrade_skill(
 
         placement = entry.agents[agent_id]
         placement_path = Path(placement.path).expanduser()
+        placement_conflicted = False
 
         if dry_run:
             if force or not old_store or not placement_path.exists():
@@ -155,6 +169,7 @@ def _upgrade_skill(
             )
             if conflicted:
                 has_conflicts = True
+                placement_conflicted = True
                 output.warning(
                     f"Conflicts in '{skill_name}' at {placement_path}: "
                     + ", ".join(conflicted)
@@ -167,20 +182,28 @@ def _upgrade_skill(
             else:
                 output.info(f"No changes needed for '{skill_name}' at {placement_path}")
 
-        # Update provenance
-        from napoln.commands.add import _write_provenance
-        _write_provenance(
-            placement_path, entry.source, new_version,
-            new_content_hash, placement.link_mode,
-        )
+        # Only update provenance for clean placements
+        if not placement_conflicted:
+            from napoln.commands.add import _write_provenance
+            _write_provenance(
+                placement_path, entry.source, new_version,
+                new_content_hash, placement.link_mode,
+            )
 
     if not dry_run:
-        # Update manifest
-        entry.version = new_version
-        entry.store_hash = new_content_hash
-        from napoln.core.manifest import _now_iso
-        entry.updated = _now_iso()
-        manifest.write_manifest(mf, manifest_path)
-        output.success(f"Upgraded '{skill_name}' to v{new_version}")
+        if has_conflicts:
+            # Keep old version in manifest so re-running upgrade works.
+            # The new version is in the store for the next merge attempt.
+            output.warning(
+                f"'{skill_name}' upgraded with conflicts. "
+                f"Resolve them, then run `napoln upgrade {skill_name}` again."
+            )
+        else:
+            entry.version = new_version
+            entry.store_hash = new_content_hash
+            from napoln.core.manifest import _now_iso
+            entry.updated = _now_iso()
+            manifest.write_manifest(mf, manifest_path)
+            output.success(f"Upgraded '{skill_name}' to v{new_version}")
 
     return 2 if has_conflicts else 0
