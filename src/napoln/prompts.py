@@ -16,6 +16,49 @@ class SkillChoice:
     path: Path
 
 
+def _short_description(desc: str, max_len: int = 60) -> str:
+    """Extract a short summary from a potentially long description.
+
+    Takes the first sentence (up to the first period followed by a space,
+    or the first comma, or the whole string) and truncates to max_len.
+    """
+    if not desc:
+        return ""
+
+    # Strip common prefixes like "Use when..." that are trigger instructions
+    text = desc.strip()
+    for prefix in (
+        "Use when ",
+        "Use for ",
+        "Use if ",
+        "Use after ",
+        "Use before ",
+        "Use BEFORE ",
+    ):
+        if text.startswith(prefix):
+            text = text[len(prefix) :]
+            # Capitalize the remainder
+            text = text[0].upper() + text[1:] if text else text
+            break
+
+    # Take first sentence
+    for sep in (". ", "; ", " — ", " Trigger", " Keywords"):
+        idx = text.find(sep)
+        if idx > 0:
+            text = text[:idx]
+            break
+
+    if len(text) <= max_len:
+        return text
+
+    # Truncate at last word boundary
+    truncated = text[:max_len]
+    last_space = truncated.rfind(" ")
+    if last_space > max_len // 2:
+        truncated = truncated[:last_space]
+    return truncated + "..."
+
+
 def pick_skills(choices: list[SkillChoice]) -> list[SkillChoice]:
     """Interactive checkbox picker for skills.
 
@@ -27,17 +70,20 @@ def pick_skills(choices: list[SkillChoice]) -> list[SkillChoice]:
 
     import questionary
 
+    # Find longest name for alignment
+    max_name = max(len(c.name) for c in choices) if choices else 0
+
     options = []
     for c in choices:
-        label = c.name
-        if c.description:
-            # Truncate long descriptions
-            desc = c.description if len(c.description) <= 60 else c.description[:57] + "..."
-            label = f"{c.name} ({desc})"
-        options.append(questionary.Choice(title=label, value=c))
+        short = _short_description(c.description)
+        if short:
+            label = f"{c.name:<{max_name}}  {short}"
+        else:
+            label = c.name
+        options.append(questionary.Choice(title=label, value=c, checked=False))
 
     selected = questionary.checkbox(
-        "Select skills to install (space to toggle, enter to confirm):",
+        "Select skills to install:",
         choices=options,
     ).ask()
 
