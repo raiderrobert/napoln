@@ -49,12 +49,11 @@ The `core/` package has no dependency on `commands/` or `cli.py`. Commands impor
 
 ```bash
 just test                     # full suite
-just unit                     # unit tests only
-just bdd                      # BDD scenario tests only
-just integration              # CLI integration tests only
-just coverage                 # with coverage report
 just test -k "test_merge"     # run tests matching a pattern
 just test -x -v               # stop on first failure, verbose
+just test tests/unit/          # unit tests only
+just test tests/steps/         # BDD scenario tests only
+just test tests/integration/   # CLI integration tests only
 ```
 
 Or without just:
@@ -106,8 +105,8 @@ Step definitions go in `tests/steps/test_<feature>.py`.
 ## Linting
 
 ```bash
-just lint        # check only
-just fix         # auto-fix
+just check       # format check + lint + tests
+just fmt         # auto-fix formatting and lint
 ```
 
 napoln uses [ruff](https://docs.astral.sh/ruff/) for linting and formatting. Config is in `pyproject.toml`:
@@ -119,7 +118,7 @@ napoln uses [ruff](https://docs.astral.sh/ruff/) for linting and formatting. Con
 
 1. **Create a branch** off `main`.
 2. **Write tests first** when adding behavior. Unit tests for core logic, BDD for user-facing workflows.
-3. **Run `just check`** before pushing. This runs lint + the full test suite.
+3. **Run `just check`** before pushing. This runs format check + lint + tests.
 4. **Keep `core/` independent.** Commands import from core, not the reverse. If you need shared logic, it goes in `core/`.
 5. **One command per file** in `commands/`. Each module exports a `run_<command>()` function called by `cli.py`.
 
