@@ -1,5 +1,29 @@
 # Architecture: Reflink-First Store with Per-Agent Working Copies
 
+## Design Principles
+
+**Versioned, not copied.** Skills are tracked dependencies with semantic versioning and three-way merge. No symlink fragility. No copy drift. Inspired by [graft](https://github.com/raiderrobert/graft).
+
+**Decentralized.** Any git repo is a valid source. No registry required to publish or install. Go modules model, not npm-central model.
+
+**Content-addressed.** Every stored version has a deterministic SHA-256 hash. Same content → same hash. You always know exactly what you have. Nix model.
+
+**Depth over breadth.** Five agents supported well beats forty supported poorly. Each target agent gets tested, validated integration.
+
+**Transparent telemetry.** Opt-in only. `napoln telemetry show-data` shows exactly what would be sent. Nothing is collected by default.
+
+**Self-describing.** napoln ships a bootstrap skill (`napoln-manage`) that teaches agents how to use it. The tool describes itself to the agent, so users can discover and manage skills without leaving their preferred agent.
+
+## Prior Art
+
+| Project | What we learned |
+|---------|----------------|
+| [Vercel skills](https://github.com/vercel-labs/skills) | The problem space and the [Agent Skills standard](https://agentskills.io/specification) |
+| [graft](https://github.com/raiderrobert/graft) | Versioned file-level dependency management with three-way merge |
+| Go modules | Decentralized sourcing, minimal infrastructure |
+| Nix | Content-addressed packages, reproducibility |
+| npm / cargo / uv | Registry-based discovery, semantic versioning, lockfile patterns |
+
 ## Design Inspiration
 
 This architecture draws directly from how **uv** and **pnpm** solve the same fundamental problem: content needs to appear in multiple locations without wasting disk or creating fragile links.
@@ -627,16 +651,22 @@ napoln/
 
 ---
 
-## Open Questions
+## Resolved Questions
 
-1. **Registry at launch?** Can we ship v0.1 with git-only sources (no registry) and add registry later? This dramatically simplifies the initial build.
+These were open during design. Decisions are now implemented.
 
-2. **Lock file?** Do we need a `napoln.lock` (like `uv.lock`) separate from the manifest? The manifest already pins versions and hashes. A lock file would add reproducibility for teams — `napoln install` from a lock file guarantees everyone gets the same content.
+1. **Registry at launch?** No. v0.1 ships with git-only sources. The CLI parses registry identifiers and returns a clear "not yet available" message. The manifest format supports it for future addition.
 
-3. **Skill authoring format:** Do skill authors just create a directory with `SKILL.md`? Or do we want a `napoln.toml` at the repo level for multi-skill repos (declaring which subdirectories are skills, repo-level metadata, etc.)?
+2. **Lock file?** No. The manifest pins exact versions and content hashes, which provides sufficient reproducibility. A lock file adds value when there are transitive dependencies — skills don't have dependencies on other skills.
 
-4. **Agent-specific frontmatter:** If a skill author wants `allowed-tools` for Claude Code but not Gemini, do they just put it in the shared SKILL.md (agents ignore unknown fields)? Or do we want an overlay mechanism?
+3. **Skill authoring format:** Just a directory with `SKILL.md`. No `napoln.toml` required. Skill discovery is purely based on the Agent Skills standard. This means existing skill repos work without modification.
 
-5. **`.gitignore` strategy for project-level skills:** Should `.claude/skills/managed-by-napoln/` be gitignored? If so, team members need to run `napoln install` after clone. If not, the reflinked files are committed as regular files — but then napoln's merge on upgrade conflicts with git's merge.
+4. **Agent-specific frontmatter:** One SKILL.md serves all agents. Agents ignore fields they don't understand, so a single file can include a superset (`allowed-tools` for Claude Code, `disable-model-invocation` for pi). No overlay mechanism.
 
-6. **Compile-to-agent as a future extension:** If agent formats diverge in the future, we could add an optional compile step (Aulë-style) that transforms a richer source format into Agent Skills standard output before storing. This doesn't need to exist at launch but should be possible to add without breaking changes.
+5. **`.gitignore` strategy:** Commit the manifest, gitignore the placements. Team members run `napoln install` after clone. Same pattern as `package.json` + `node_modules/`.
+
+## Future Considerations
+
+- **Registry API and web UI** for discovery beyond git
+- **Compile-to-agent adapter** if agent formats diverge significantly
+- **Skill dependencies** and a lock file if skills ever depend on other skills
