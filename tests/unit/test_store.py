@@ -10,127 +10,103 @@ from napoln.core.store import (
 )
 
 
+@pytest.fixture
+def store_home(tmp_path):
+    """Napoln home with store and cache dirs."""
+    nh = tmp_path / ".napoln"
+    nh.mkdir()
+    (nh / "store").mkdir()
+    return nh
+
+
 class TestStoreSkill:
     """Storing skills in the content-addressed store."""
 
-    def test_stores_skill(self, tmp_path, skill_builder):
+    def test_stores_skill(self, skill_builder, store_home):
         """A skill is stored with version-hash directory name."""
         skill_dir = skill_builder("my-skill")
-        napoln_home = tmp_path / ".napoln"
-        napoln_home.mkdir()
-
-        store_path, content_hash = store_skill(skill_dir, "my-skill", "1.0.0", napoln_home)
+        store_path, content_hash = store_skill(skill_dir, "my-skill", "1.0.0", store_home)
 
         assert store_path.exists()
         assert store_path.name == f"1.0.0-{content_hash}"
         assert (store_path / "SKILL.md").exists()
 
-    def test_idempotent(self, tmp_path, skill_builder):
+    def test_idempotent(self, skill_builder, store_home):
         """Storing the same skill twice is a no-op."""
         skill_dir = skill_builder("my-skill")
-        napoln_home = tmp_path / ".napoln"
-        napoln_home.mkdir()
 
-        path1, hash1 = store_skill(skill_dir, "my-skill", "1.0.0", napoln_home)
-        path2, hash2 = store_skill(skill_dir, "my-skill", "1.0.0", napoln_home)
+        path1, hash1 = store_skill(skill_dir, "my-skill", "1.0.0", store_home)
+        path2, hash2 = store_skill(skill_dir, "my-skill", "1.0.0", store_home)
 
         assert path1 == path2
         assert hash1 == hash2
 
-    def test_different_versions(self, tmp_path, skill_builder):
+    def test_different_versions(self, skill_builder, store_home):
         """Different content produces different store entries."""
-        napoln_home = tmp_path / ".napoln"
-        napoln_home.mkdir()
-
         skill_v1 = skill_builder("my-skill", version="1.0.0", body="# V1")
-        path1, hash1 = store_skill(skill_v1, "my-skill", "1.0.0", napoln_home)
+        path1, hash1 = store_skill(skill_v1, "my-skill", "1.0.0", store_home)
 
         skill_v2 = skill_builder("my-skill", version="2.0.0", body="# V2")
-        path2, hash2 = store_skill(skill_v2, "my-skill", "2.0.0", napoln_home)
+        path2, hash2 = store_skill(skill_v2, "my-skill", "2.0.0", store_home)
 
         assert path1 != path2
         assert hash1 != hash2
 
-    def test_excludes_napoln_file(self, tmp_path, skill_builder):
+    def test_excludes_napoln_file(self, skill_builder, store_home):
         """The .napoln provenance file is not stored."""
         skill_dir = skill_builder("my-skill")
         (skill_dir / ".napoln").write_text('version = "1.0.0"')
 
-        napoln_home = tmp_path / ".napoln"
-        napoln_home.mkdir()
-
-        store_path, _ = store_skill(skill_dir, "my-skill", "1.0.0", napoln_home)
+        store_path, _ = store_skill(skill_dir, "my-skill", "1.0.0", store_home)
         assert not (store_path / ".napoln").exists()
 
 
 class TestGetStoredSkill:
     """Looking up stored skills."""
 
-    def test_found(self, tmp_path, skill_builder):
+    def test_found(self, skill_builder, store_home):
         skill_dir = skill_builder("my-skill")
-        napoln_home = tmp_path / ".napoln"
-        napoln_home.mkdir()
-
-        _, content_hash = store_skill(skill_dir, "my-skill", "1.0.0", napoln_home)
-        result = get_stored_skill("my-skill", "1.0.0", content_hash, napoln_home)
+        _, content_hash = store_skill(skill_dir, "my-skill", "1.0.0", store_home)
+        result = get_stored_skill("my-skill", "1.0.0", content_hash, store_home)
 
         assert result is not None
         assert result.exists()
 
-    def test_not_found(self, tmp_path):
-        napoln_home = tmp_path / ".napoln"
-        napoln_home.mkdir()
-        (napoln_home / "store").mkdir()
-
-        result = get_stored_skill("nope", "1.0.0", "0000000", napoln_home)
+    def test_not_found(self, store_home):
+        result = get_stored_skill("nope", "1.0.0", "0000000", store_home)
         assert result is None
 
 
 class TestListStoredVersions:
     """Listing stored versions of a skill."""
 
-    def test_lists_versions(self, tmp_path, skill_builder):
-        napoln_home = tmp_path / ".napoln"
-        napoln_home.mkdir()
-
+    def test_lists_versions(self, skill_builder, store_home):
         for ver, body in [("1.0.0", "# V1"), ("2.0.0", "# V2")]:
             skill = skill_builder("my-skill", version=ver, body=body)
-            store_skill(skill, "my-skill", ver, napoln_home)
+            store_skill(skill, "my-skill", ver, store_home)
 
-        versions = list_stored_versions("my-skill", napoln_home)
+        versions = list_stored_versions("my-skill", store_home)
         assert len(versions) == 2
         ver_strings = [v[0] for v in versions]
         assert "1.0.0" in ver_strings
         assert "2.0.0" in ver_strings
 
-    def test_empty(self, tmp_path):
-        napoln_home = tmp_path / ".napoln"
-        napoln_home.mkdir()
-        (napoln_home / "store").mkdir()
-
-        versions = list_stored_versions("nope", napoln_home)
+    def test_empty(self, store_home):
+        versions = list_stored_versions("nope", store_home)
         assert versions == []
 
 
 class TestVerifyStoreEntry:
     """Store entry integrity verification."""
 
-    def test_valid_entry(self, tmp_path, skill_builder):
+    def test_valid_entry(self, skill_builder, store_home):
         skill_dir = skill_builder("my-skill")
-        napoln_home = tmp_path / ".napoln"
-        napoln_home.mkdir()
-
-        store_path, _ = store_skill(skill_dir, "my-skill", "1.0.0", napoln_home)
+        store_path, _ = store_skill(skill_dir, "my-skill", "1.0.0", store_home)
         assert verify_store_entry(store_path) is True
 
-    def test_corrupted_entry(self, tmp_path, skill_builder):
+    def test_corrupted_entry(self, skill_builder, store_home):
         skill_dir = skill_builder("my-skill")
-        napoln_home = tmp_path / ".napoln"
-        napoln_home.mkdir()
+        store_path, _ = store_skill(skill_dir, "my-skill", "1.0.0", store_home)
 
-        store_path, _ = store_skill(skill_dir, "my-skill", "1.0.0", napoln_home)
-
-        # Corrupt the stored file
         (store_path / "SKILL.md").write_text("CORRUPTED")
-
         assert verify_store_entry(store_path) is False

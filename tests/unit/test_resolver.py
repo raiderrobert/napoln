@@ -6,6 +6,15 @@ from napoln.core.resolver import ParsedSource, parse_source, resolve_local
 from napoln.errors import ResolverError
 
 
+def _local_parsed(path, original=None):
+    """Build a ParsedSource for a local path."""
+    return ParsedSource(
+        source_type="local", host="", owner="", repo="",
+        path="", version="", original=original or str(path),
+        local_path=path,
+    )
+
+
 class TestParseSource:
     """Source identifier parsing."""
 
@@ -40,23 +49,23 @@ class TestParseSource:
         parsed = parse_source(source)
         assert parsed.version == expected_version
 
-    def test_local_path_relative(self, tmp_path):
-        """Relative paths are parsed as local sources."""
+    @pytest.mark.parametrize(
+        "source",
+        ["./path/to/skill", "../relative", "/absolute/path/to/skill"],
+        ids=["dot-relative", "parent-relative", "absolute"],
+    )
+    def test_local_paths(self, source):
+        """Paths starting with ./, ../, or / are parsed as local sources."""
+        parsed = parse_source(source)
+        assert parsed.source_type == "local"
+
+    def test_local_path_existing_dir(self, tmp_path):
+        """Existing directories are detected as local sources."""
         skill_dir = tmp_path / "my-skill"
         skill_dir.mkdir()
         (skill_dir / "SKILL.md").write_text("---\nname: my-skill\n---\n# Hello")
 
         parsed = parse_source(str(skill_dir))
-        assert parsed.source_type == "local"
-
-    def test_local_path_absolute(self, tmp_path):
-        """Absolute paths starting with / are local sources."""
-        parsed = parse_source("/absolute/path/to/skill")
-        assert parsed.source_type == "local"
-
-    def test_local_relative_dot(self):
-        """Paths starting with ./ are local sources."""
-        parsed = parse_source("./path/to/skill")
         assert parsed.source_type == "local"
 
     def test_path_extraction(self):
@@ -83,37 +92,29 @@ class TestResolveLocal:
             '---\nname: my-skill\ndescription: Test\nmetadata:\n  version: "1.0.0"\n---\n# Hello'
         )
 
-        parsed = ParsedSource(
-            source_type="local", host="", owner="", repo="",
-            path="", version="", original=str(skill_dir),
-            local_path=skill_dir,
-        )
-        resolved = resolve_local(parsed)
+        resolved = resolve_local(_local_parsed(skill_dir))
 
         assert resolved.source_type == "local"
         assert resolved.version == "1.0.0"
         assert resolved.skill_dir == skill_dir
 
-    def test_resolve_nonexistent_raises(self, tmp_path):
-        parsed = ParsedSource(
-            source_type="local", host="", owner="", repo="",
-            path="", version="", original="/nope",
-            local_path=tmp_path / "nope",
-        )
-        with pytest.raises(ResolverError, match="does not exist"):
-            resolve_local(parsed)
+    @pytest.mark.parametrize(
+        "setup, match",
+        [
+            ("nonexistent", "does not exist"),
+            ("file", "Not a directory"),
+        ],
+        ids=["nonexistent", "not-a-dir"],
+    )
+    def test_resolve_invalid_raises(self, tmp_path, setup, match):
+        if setup == "nonexistent":
+            path = tmp_path / "nope"
+        else:
+            path = tmp_path / "not-a-dir"
+            path.write_text("hi")
 
-    def test_resolve_file_not_dir_raises(self, tmp_path):
-        f = tmp_path / "not-a-dir"
-        f.write_text("hi")
-
-        parsed = ParsedSource(
-            source_type="local", host="", owner="", repo="",
-            path="", version="", original=str(f),
-            local_path=f,
-        )
-        with pytest.raises(ResolverError, match="Not a directory"):
-            resolve_local(parsed)
+        with pytest.raises(ResolverError, match=match):
+            resolve_local(_local_parsed(path))
 
     def test_resolve_no_version_defaults(self, tmp_path):
         """Skills without version metadata default to 0.0.0."""
@@ -121,10 +122,5 @@ class TestResolveLocal:
         skill_dir.mkdir()
         (skill_dir / "SKILL.md").write_text("---\nname: my-skill\ndescription: x\n---\n# Hello")
 
-        parsed = ParsedSource(
-            source_type="local", host="", owner="", repo="",
-            path="", version="", original=str(skill_dir),
-            local_path=skill_dir,
-        )
-        resolved = resolve_local(parsed)
+        resolved = resolve_local(_local_parsed(skill_dir))
         assert resolved.version == "0.0.0"

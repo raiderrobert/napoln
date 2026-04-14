@@ -8,40 +8,31 @@ from napoln.core.merger import has_conflict_markers, merge_file, merge_skill
 class TestMergeFile:
     """Three-way file merge."""
 
-    def test_no_changes(self, tmp_path):
-        """When nothing changed, return base content."""
-        for name in ["ours", "base", "theirs"]:
-            (tmp_path / name).write_text("Same content")
+    @pytest.mark.parametrize(
+        "ours_text, base_text, theirs_text, expect_conflicts, expect_contains",
+        [
+            # No changes anywhere
+            ("Same content", "Same content", "Same content", False, "Same content"),
+            # Only upstream changed → fast-forward
+            ("original", "original", "new from upstream", False, "new from upstream"),
+            # Only local changed → keep ours
+            ("locally modified", "original", "original", False, "locally modified"),
+        ],
+        ids=["no-changes", "only-upstream", "only-local"],
+    )
+    def test_one_side_or_no_changes(
+        self, tmp_path, ours_text, base_text, theirs_text,
+        expect_conflicts, expect_contains,
+    ):
+        (tmp_path / "ours").write_text(ours_text)
+        (tmp_path / "base").write_text(base_text)
+        (tmp_path / "theirs").write_text(theirs_text)
 
         merged, has_conflicts = merge_file(
             tmp_path / "ours", tmp_path / "base", tmp_path / "theirs"
         )
-        assert not has_conflicts
-        assert "Same content" in merged
-
-    def test_only_upstream_changed(self, tmp_path):
-        """Fast-forward: only upstream changed."""
-        (tmp_path / "ours").write_text("original")
-        (tmp_path / "base").write_text("original")
-        (tmp_path / "theirs").write_text("new from upstream")
-
-        merged, has_conflicts = merge_file(
-            tmp_path / "ours", tmp_path / "base", tmp_path / "theirs"
-        )
-        assert not has_conflicts
-        assert "new from upstream" in merged
-
-    def test_only_local_changed(self, tmp_path):
-        """Keep ours: only local changed."""
-        (tmp_path / "ours").write_text("locally modified")
-        (tmp_path / "base").write_text("original")
-        (tmp_path / "theirs").write_text("original")
-
-        merged, has_conflicts = merge_file(
-            tmp_path / "ours", tmp_path / "base", tmp_path / "theirs"
-        )
-        assert not has_conflicts
-        assert "locally modified" in merged
+        assert has_conflicts is expect_conflicts
+        assert expect_contains in merged
 
     def test_both_changed_different_lines(self, tmp_path):
         """Clean merge when changes don't overlap."""
@@ -56,8 +47,6 @@ class TestMergeFile:
         merged, has_conflicts = merge_file(
             tmp_path / "ours", tmp_path / "base", tmp_path / "theirs"
         )
-        # Should contain both changes (if git is available for clean merge)
-        # May have conflicts if using fallback
         assert merged  # Non-empty result
 
     def test_both_changed_same_line_conflicts(self, tmp_path):
@@ -73,97 +62,92 @@ class TestMergeFile:
         assert "<<<<<<<" in merged
 
 
+@pytest.fixture
+def merge_dirs(tmp_path):
+    """Create working/base/new directories for merge_skill tests."""
+    dirs = {}
+    for name in ("working", "base", "new"):
+        d = tmp_path / name
+        d.mkdir()
+        dirs[name] = d
+    return dirs
+
+
 class TestMergeSkill:
     """Full skill directory merge."""
 
-    def test_fast_forward_unmodified(self, tmp_path):
+    def test_fast_forward_unmodified(self, merge_dirs):
         """Unmodified files are fast-forwarded to new upstream."""
-        working = tmp_path / "working"
-        base = tmp_path / "base"
-        new = tmp_path / "new"
-        for d in [working, base, new]:
-            d.mkdir()
+        merge_dirs["base"] / "SKILL.md" and (merge_dirs["base"] / "SKILL.md").write_text("V1 content")
+        (merge_dirs["working"] / "SKILL.md").write_text("V1 content")
+        (merge_dirs["new"] / "SKILL.md").write_text("V2 content")
 
-        (base / "SKILL.md").write_text("V1 content")
-        (working / "SKILL.md").write_text("V1 content")  # unmodified
-        (new / "SKILL.md").write_text("V2 content")
-
-        updated, conflicted = merge_skill(working, base, new)
+        updated, conflicted = merge_skill(
+            merge_dirs["working"], merge_dirs["base"], merge_dirs["new"]
+        )
 
         assert "SKILL.md" in updated
         assert not conflicted
-        assert (working / "SKILL.md").read_text() == "V2 content"
+        assert (merge_dirs["working"] / "SKILL.md").read_text() == "V2 content"
 
-    def test_keeps_local_changes_when_upstream_unchanged(self, tmp_path):
+    def test_keeps_local_changes_when_upstream_unchanged(self, merge_dirs):
         """Local changes preserved when upstream didn't change the file."""
-        working = tmp_path / "working"
-        base = tmp_path / "base"
-        new = tmp_path / "new"
-        for d in [working, base, new]:
-            d.mkdir()
+        (merge_dirs["base"] / "SKILL.md").write_text("V1 content")
+        (merge_dirs["working"] / "SKILL.md").write_text("V1 locally modified")
+        (merge_dirs["new"] / "SKILL.md").write_text("V1 content")
 
-        (base / "SKILL.md").write_text("V1 content")
-        (working / "SKILL.md").write_text("V1 locally modified")
-        (new / "SKILL.md").write_text("V1 content")  # unchanged
+        updated, conflicted = merge_skill(
+            merge_dirs["working"], merge_dirs["base"], merge_dirs["new"]
+        )
 
-        updated, conflicted = merge_skill(working, base, new)
-
-        assert not updated  # No files should have been updated
+        assert not updated
         assert not conflicted
-        assert (working / "SKILL.md").read_text() == "V1 locally modified"
+        assert (merge_dirs["working"] / "SKILL.md").read_text() == "V1 locally modified"
 
-    def test_new_file_from_upstream(self, tmp_path):
+    def test_new_file_from_upstream(self, merge_dirs):
         """New files from upstream are added."""
-        working = tmp_path / "working"
-        base = tmp_path / "base"
-        new = tmp_path / "new"
-        for d in [working, base, new]:
-            d.mkdir()
+        for d in merge_dirs.values():
+            (d / "SKILL.md").write_text("V1")
+        (merge_dirs["new"] / "NEW.md").write_text("New file from upstream")
 
-        (base / "SKILL.md").write_text("V1")
-        (working / "SKILL.md").write_text("V1")
-        (new / "SKILL.md").write_text("V1")
-        (new / "NEW.md").write_text("New file from upstream")
-
-        updated, conflicted = merge_skill(working, base, new)
+        updated, conflicted = merge_skill(
+            merge_dirs["working"], merge_dirs["base"], merge_dirs["new"]
+        )
 
         assert "NEW.md" in updated
-        assert (working / "NEW.md").read_text() == "New file from upstream"
+        assert (merge_dirs["working"] / "NEW.md").read_text() == "New file from upstream"
 
-    def test_deleted_upstream_unmodified_locally(self, tmp_path):
+    def test_deleted_upstream_unmodified_locally(self, merge_dirs):
         """Files deleted in upstream are removed if unmodified locally."""
-        working = tmp_path / "working"
-        base = tmp_path / "base"
-        new = tmp_path / "new"
-        for d in [working, base, new]:
-            d.mkdir()
+        (merge_dirs["base"] / "SKILL.md").write_text("V1")
+        (merge_dirs["base"] / "old.md").write_text("to be removed")
+        (merge_dirs["working"] / "SKILL.md").write_text("V1")
+        (merge_dirs["working"] / "old.md").write_text("to be removed")
+        (merge_dirs["new"] / "SKILL.md").write_text("V1")
 
-        (base / "SKILL.md").write_text("V1")
-        (base / "old.md").write_text("to be removed")
-        (working / "SKILL.md").write_text("V1")
-        (working / "old.md").write_text("to be removed")  # unmodified
-        (new / "SKILL.md").write_text("V1")
-        # old.md not in new — deleted upstream
-
-        updated, conflicted = merge_skill(working, base, new)
+        updated, conflicted = merge_skill(
+            merge_dirs["working"], merge_dirs["base"], merge_dirs["new"]
+        )
 
         assert "old.md" in updated
-        assert not (working / "old.md").exists()
+        assert not (merge_dirs["working"] / "old.md").exists()
 
 
 class TestHasConflictMarkers:
     """Conflict marker detection."""
 
-    def test_has_markers(self, tmp_path):
+    @pytest.mark.parametrize(
+        "content, expected",
+        [
+            ("<<<<<<< local\nfoo\n=======\nbar\n>>>>>>> upstream\n", True),
+            ("# Clean file\nNo conflicts here.\n", False),
+        ],
+        ids=["with-markers", "clean"],
+    )
+    def test_detects_markers(self, tmp_path, content, expected):
         f = tmp_path / "test.md"
-        f.write_text("<<<<<<< local\nfoo\n=======\nbar\n>>>>>>> upstream\n")
-        assert has_conflict_markers(f) is True
-
-    def test_no_markers(self, tmp_path):
-        f = tmp_path / "test.md"
-        f.write_text("# Clean file\nNo conflicts here.\n")
-        assert has_conflict_markers(f) is False
+        f.write_text(content)
+        assert has_conflict_markers(f) is expected
 
     def test_nonexistent_file(self, tmp_path):
-        f = tmp_path / "nope.md"
-        assert has_conflict_markers(f) is False
+        assert has_conflict_markers(tmp_path / "nope.md") is False
