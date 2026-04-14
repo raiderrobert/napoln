@@ -176,8 +176,8 @@ def list_cmd(
     global_only: Annotated[
         bool, typer.Option("--global", "-g", help="Show only global skills.")
     ] = False,
-    paths: Annotated[
-        bool, typer.Option("--paths", help="Show placement paths instead of agent names.")
+    long: Annotated[
+        bool, typer.Option("--long", "-l", help="Show placement paths instead of agent names.")
     ] = False,
     json_out: Annotated[bool, typer.Option("--json", help="Machine-readable JSON output.")] = False,
 ) -> None:
@@ -187,7 +187,7 @@ def list_cmd(
     exit_code = run_list(
         project_only=project,
         global_only=global_only,
-        show_paths=paths,
+        show_paths=long,
         json_output=json_out,
     )
     raise typer.Exit(code=exit_code)
