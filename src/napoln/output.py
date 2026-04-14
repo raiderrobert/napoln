@@ -87,6 +87,3 @@ def install_summary(
     dim(f"  Agents: {agents_str}")
     dim(f"  Scope:  {scope}")
     typer.echo()
-
-
-

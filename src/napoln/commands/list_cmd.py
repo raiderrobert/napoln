@@ -54,6 +54,31 @@ def _common_agents(mf: manifest.Manifest) -> list[str] | None:
     return common
 
 
+def _get_placement_dirs(entry: manifest.SkillEntry, home: str) -> list[str]:
+    """Extract unique shortened parent dirs from agent placements."""
+    seen: set[str] = set()
+    dirs: list[str] = []
+    for placement in entry.agents.values():
+        parent = str(Path(placement.path).parent)
+        short = _abbreviate_path(parent, home)
+        if short not in seen:
+            seen.add(short)
+            dirs.append(short)
+    return dirs
+
+
+def _common_paths(mf: manifest.Manifest, home: str) -> list[str] | None:
+    """If all skills share the same placement dirs, return them. Else None."""
+    common: list[str] | None = None
+    for entry in mf.skills.values():
+        dirs = _get_placement_dirs(entry, home)
+        if common is None:
+            common = dirs
+        elif dirs != common:
+            return None
+    return common
+
+
 def _abbreviate_source(source: str) -> str:
     """Shorten a source for display."""
     if source == "bundled":
@@ -73,6 +98,7 @@ def _abbreviate_source(source: str) -> str:
 def _print_skills(
     mf: manifest.Manifest,
     label: str,
+    show_paths: bool = False,
 ) -> None:
     """Print skills from a manifest under a section label."""
     import typer
@@ -80,14 +106,22 @@ def _print_skills(
     if not mf.skills:
         return
 
-    common = _common_agents(mf)
+    home = str(Path.home())
 
-    # Build header with common agents if they exist
-    if common:
-        agents_str = ", ".join(common)
-        output.header(f"{label} (→ {agents_str}):")
+    if show_paths:
+        common_dirs = _common_paths(mf, home)
+        if common_dirs:
+            dirs_str = "  ".join(common_dirs)
+            output.header(f"{label} (→ {dirs_str}):")
+        else:
+            output.header(f"{label}:")
     else:
-        output.header(f"{label}:")
+        common_agents = _common_agents(mf)
+        if common_agents:
+            agents_str = ", ".join(common_agents)
+            output.header(f"{label} (→ {agents_str}):")
+        else:
+            output.header(f"{label}:")
 
     # Calculate dynamic column widths
     entries = sorted(mf.skills.items())
@@ -101,11 +135,16 @@ def _print_skills(
         ver_col = f"  {entry.version:<{max_ver}}"
         source_col = f"  {source}"
 
-        # If agents differ per skill, show them on this line
+        # If placements/agents differ per skill, show them on this line
         suffix = ""
-        if not common:
-            agents = _get_agent_names(entry)
-            suffix = f"  → {', '.join(agents)}"
+        if show_paths:
+            if not _common_paths(mf, home):
+                dirs = _get_placement_dirs(entry, home)
+                suffix = "  → " + "  ".join(dirs)
+        else:
+            if not _common_agents(mf):
+                agents = _get_agent_names(entry)
+                suffix = f"  → {', '.join(agents)}"
 
         typer.echo(
             typer.style(name_col, bold=True)
@@ -158,6 +197,7 @@ def _build_json(
 def run_list(
     project_only: bool = False,
     global_only: bool = False,
+    show_paths: bool = False,
     json_output: bool = False,
 ) -> int:
     """Execute the list command.
@@ -188,7 +228,7 @@ def run_list(
     has_any = False
 
     if global_mf and global_mf.skills:
-        _print_skills(global_mf, "Global")
+        _print_skills(global_mf, "Global", show_paths=show_paths)
         has_any = True
 
     if project_mf and project_mf.skills:
@@ -198,7 +238,7 @@ def run_list(
             typer.echo()  # blank line between sections
         cwd_short = _abbreviate_path(str(Path.cwd()), str(Path.home()))
         project_label = f"Project ({cwd_short})"
-        _print_skills(project_mf, project_label)
+        _print_skills(project_mf, project_label, show_paths=show_paths)
         has_any = True
 
     if not has_any:
