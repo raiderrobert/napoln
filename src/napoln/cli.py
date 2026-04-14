@@ -284,7 +284,7 @@ def list_cmd(
 # ─── config ───────────────────────────────────────────────────────────────────
 
 
-config_app = typer.Typer(help="View or edit configuration.", no_args_is_help=True)
+config_app = typer.Typer(help="View or edit configuration.", no_args_is_help=False)
 app.add_typer(config_app, name="config")
 
 
@@ -292,7 +292,7 @@ app.add_typer(config_app, name="config")
 def config_default(
     ctx: typer.Context,
 ) -> None:
-    """Show current configuration."""
+    """View or edit configuration."""
     if ctx.invoked_subcommand is None:
         from napoln.commands.config import run_config_show
         exit_code = run_config_show()
