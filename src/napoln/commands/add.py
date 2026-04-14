@@ -9,12 +9,16 @@ from napoln import output
 from napoln.core import agents as agents_mod
 from napoln.core import linker, manifest, store, validator
 from napoln.core.resolver import (
+    ParsedSource,
     ResolvedSource,
+    _extract_description,
+    _resolve_version,
     parse_source,
     resolve_git,
     resolve_local,
 )
-from napoln.errors import ResolverError
+from napoln.errors import MultipleSkillsError, ResolverError
+from napoln.prompts import SkillChoice, pick_skills
 
 
 def _get_napoln_home() -> Path:
@@ -206,6 +210,57 @@ def _install_single_skill(
     return exit_code
 
 
+def _pick_from_multi_skill_repo(
+    err: MultipleSkillsError,
+    parsed: ParsedSource,
+    source: str,
+    version_constraint: str | None,
+    napoln_home: Path,
+) -> list[ResolvedSource] | None:
+    """Show an interactive picker for multi-skill repos.
+
+    Returns a list of ResolvedSource, or None if the user cancels.
+    """
+
+    output.info(f"Found {len(err.skill_dirs)} skills in {source}")
+
+    choices = [
+        SkillChoice(
+            name=sd.name,
+            description=_extract_description(sd),
+            path=sd,
+        )
+        for sd in sorted(err.skill_dirs, key=lambda d: d.name)
+    ]
+
+    selected = pick_skills(choices)
+    if not selected:
+        output.info("No skills selected.")
+        return None
+
+    # Resolve the git ref for version
+    ref = parsed.version or version_constraint or ""
+    source_id = f"{parsed.host}/{parsed.owner}/{parsed.repo}" if parsed.host else source
+
+    results = []
+    for choice in selected:
+        version = _resolve_version(choice.path, ref, err.repo_dir)
+        rel = choice.path.relative_to(err.repo_dir)
+        sid = f"{source_id}/{rel}" if str(rel) != "." else source_id
+        results.append(
+            ResolvedSource(
+                source_type="git",
+                source_id=sid,
+                skill_dir=choice.path,
+                version=version,
+                cleanup=False,
+                skill_name=choice.name,
+            )
+        )
+
+    return results
+
+
 def run_add(
     source: str,
     agent_ids: list[str] | None = None,
@@ -258,6 +313,13 @@ def run_add(
         else:
             output.error(f"Unknown source type: {parsed.source_type}")
             return 1
+    except MultipleSkillsError as e:
+        # Interactive picker for multi-skill repos
+        resolved_result = _pick_from_multi_skill_repo(
+            e, parsed, source, version_constraint, napoln_home
+        )
+        if resolved_result is None:
+            return 1
     except ResolverError as e:
         output.error(str(e), cause=e.cause, fix=e.fix)
         return 1
@@ -291,6 +353,12 @@ def run_add(
     # Load manifest once
     manifest_path = manifest.get_manifest_path(napoln_home, scope, project_root)
     mf = manifest.read_manifest(manifest_path)
+
+    # Show summary when installing multiple skills
+    if len(resolved_list) > 1 and not dry_run:
+        skill_names = [r.skill_name or r.skill_dir.name for r in resolved_list]
+        agent_names = [a.display_name for a in agent_configs]
+        output.install_summary(skill_names, agent_names, scope)
 
     # Install each skill
     worst_exit = 0

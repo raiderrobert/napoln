@@ -73,6 +73,22 @@ def print_json(data: Any) -> None:
     typer.echo(json.dumps(data, indent=2, default=str))
 
 
+def install_summary(
+    skills: list[str],
+    agent_names: list[str],
+    scope: str = "global",
+) -> None:
+    """Print a summary of what will be installed."""
+    typer.echo()
+    header(f"Installing {len(skills)} skill(s):")
+    for name in skills:
+        typer.echo(f"  {typer.style('•', fg=SUCCESS)} {name}")
+    agents_str = ", ".join(agent_names)
+    dim(f"  Agents: {agents_str}")
+    dim(f"  Scope:  {scope}")
+    typer.echo()
+
+
 def skill_status_line(
     name: str,
     version: str,
