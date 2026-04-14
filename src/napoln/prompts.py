@@ -72,43 +72,12 @@ def pick_skills(choices: list[SkillChoice]) -> list[SkillChoice]:
     from questionary import constants as q_constants
     from questionary.prompts import common as q_common
 
-    # Override questionary's default ○/● indicators. Some terminal fonts
-    # render them identically or not at all. ✓ and a blank cell avoid the
-    # problem, keep alignment, and need no color styling.
+    # Use ✓ and a blank cell as indicators. Some terminal fonts don't render
+    # the default ○/● glyphs distinctly.
     q_constants.INDICATOR_SELECTED = "✓"
     q_constants.INDICATOR_UNSELECTED = " "
     q_common.INDICATOR_SELECTED = "✓"
     q_common.INDICATOR_UNSELECTED = " "
-
-    # questionary places `[SetCursorPosition]` between the `»` pointer and
-    # the indicator, so the terminal's block cursor inverts the indicator
-    # character on the highlighted row. Wrap `_get_choice_tokens` to move
-    # the marker to the start of the row, where it lands on a blank cell.
-    if not getattr(q_common.InquirerControl, "_napoln_cursor_patched", False):
-        original = q_common.InquirerControl._get_choice_tokens
-
-        def patched(self):
-            tokens = original(self)
-            # Drop the original marker and re-insert it right before the
-            # trailing newline of the row it belonged to. The newline cell
-            # is invisible, so the terminal's block cursor has nothing
-            # visible to invert.
-            result = []
-            pending = False
-            for tok in tokens:
-                if tok[0] == "[SetCursorPosition]":
-                    pending = True
-                    continue
-                if pending and "\n" in tok[1]:
-                    result.append(("[SetCursorPosition]", ""))
-                    pending = False
-                result.append(tok)
-            if pending:
-                result.append(("[SetCursorPosition]", ""))
-            return result
-
-        q_common.InquirerControl._get_choice_tokens = patched
-        q_common.InquirerControl._napoln_cursor_patched = True
 
     # Find longest name for alignment
     max_name = max(len(c.name) for c in choices) if choices else 0
@@ -124,12 +93,9 @@ def pick_skills(choices: list[SkillChoice]) -> list[SkillChoice]:
             tokens.append(("class:text", f"  {short}"))
         options.append(questionary.Choice(title=tokens, value=c, checked=False))
 
-    style = questionary.Style(
-        [
-            ("selected", "noreverse"),
-            ("highlighted", "noreverse bold"),
-        ]
-    )
+    # prompt_toolkit's built-in default applies "reverse" to class:selected,
+    # which inverts the ✓ indicator. Explicitly cancel it.
+    style = questionary.Style([("selected", "noreverse")])
 
     selected = questionary.checkbox(
         "Select skills to install:",
