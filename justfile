@@ -1,59 +1,37 @@
-# napoln development commands
-
-set dotenv-load := false
-
-# List available commands
+# List available recipes
 default:
     @just --list
 
-# Run all checks (lint, typecheck, test)
-check: lint test
+# Run all checks (fmt, lint, test)
+check:
+    uv run ruff format --check src/ tests/
+    uv run ruff check src/ tests/
+    uv run pytest
 
-# Run the full test suite
+# Run tests
 test *args:
     uv run pytest {{ args }}
 
-# Run tests with coverage report
+# Run tests with coverage
 coverage:
     uv run pytest --cov=napoln --cov-report=term-missing
 
-# Run only unit tests
-unit *args:
-    uv run pytest tests/unit/ {{ args }}
+# Build the package
+build:
+    uv build
 
-# Run only integration tests
-integration *args:
-    uv run pytest tests/integration/ {{ args }}
-
-# Run only BDD tests
-bdd *args:
-    uv run pytest tests/steps/ {{ args }}
-
-# Lint and format check
-lint:
-    uv run ruff check src/ tests/
-    uv run ruff format --check src/ tests/
-
-# Auto-fix lint and formatting
-fix:
-    uv run ruff check --fix src/ tests/
+# Run formatting and lint fixes
+fmt:
     uv run ruff format src/ tests/
+    uv run ruff check --fix src/ tests/
 
 # Install dev dependencies
 setup:
     uv sync --extra dev
 
-# Run napoln CLI
-run *args:
-    uv run napoln {{ args }}
-
-# Run napoln doctor on this machine
-doctor:
-    uv run napoln doctor
-
-# Build the package
-build:
-    uv build
+# Install napoln locally
+install:
+    uv tool install --editable .
 
 # Clean build artifacts and caches
 clean:
