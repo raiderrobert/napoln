@@ -89,21 +89,4 @@ def install_summary(
     typer.echo()
 
 
-def skill_list_line(
-    name: str,
-    version: str,
-    source: str,
-    placements: str = "",
-) -> None:
-    """Print a single skill line in list output.
 
-    Args:
-        name: Skill name.
-        version: Version string.
-        source: Abbreviated source.
-        placements: Abbreviated placement paths.
-    """
-    name_col = typer.style(f"  {name:<22}", bold=True)
-    version_col = f"v{version:<10}"
-    source_col = typer.style(f"{source:<24}", fg=DIM)
-    typer.echo(f"{name_col}{version_col}{source_col}{placements}")
