@@ -28,7 +28,7 @@ uv tool install napoln
 ## Quick Start
 
 ```bash
-napoln add owner/repo --skill '*'
+napoln add owner/repo --all
 ```
 
 napoln clones the repo, discovers all skills, and places them in every detected agent's skill directory:
@@ -43,9 +43,19 @@ napoln clones the repo, discovers all skills, and places them in every detected 
 Install a specific skill, pin a version, or use a local path:
 
 ```bash
-napoln add owner/repo/skills/code-review    # specific skill by path
-napoln add owner/repo@v1.2.0                # pinned to a tag
-napoln add ./my-local-skill                  # local directory
+napoln add owner/repo --skill code-review   # specific skill by name
+napoln add owner/repo@v1.2.0               # pinned to a tag
+napoln add ./my-local-skill                 # local directory
+```
+
+Multi-skill repos show an interactive picker when no `--skill` or `--all` flag is given:
+
+```bash
+napoln add owner/repo
+# ? Select skills to install:
+# ❯ ◉ code-review — Review pull requests for quality and correctness
+#   ◉ testing — Generate and improve test coverage
+#   ◯ rust — Rust-specific development patterns
 ```
 
 Customize a skill, then upgrade without losing your changes:
@@ -58,18 +68,16 @@ napoln upgrade code-review
 ## Commands
 
 ```
-napoln add <source>           Install a skill
-napoln remove <name>          Remove a skill
+napoln add <source>           Install skills from a git repo or local path
+napoln remove <name>          Remove an installed skill
 napoln upgrade [<name>]       Upgrade one or all skills
-napoln status                 Show installed skills and modification state
-napoln diff <name>            Show local changes vs. upstream
-napoln sync                   Re-create missing placements from manifest
-napoln doctor                 Health check
-napoln gc                     Remove unreferenced store entries
-napoln list <source>          List skills in a repo without installing
+napoln list                   Show installed skills and where they are placed
+napoln install                Restore skill placements from manifests
+napoln init [<name>]          Scaffold a new SKILL.md
+napoln config                 View configuration and run housekeeping
 ```
 
-All mutating commands support `--dry-run`.
+All mutating commands support `--dry-run`. Use `-p` for project scope on any command.
 
 ## Supported Agents
 
@@ -81,14 +89,14 @@ All mutating commands support `--dry-run`.
 | [Codex](https://github.com/openai/codex) | `~/.agents/skills/` | `.agents/skills/` |
 | [Cursor](https://www.cursor.com/) | `~/.cursor/skills/` | `.agents/skills/` |
 
-Gemini CLI, pi, Codex, and Cursor share `.agents/skills/` at the project level — one placement serves all four.
+Gemini CLI, pi, and Codex share `~/.agents/skills/` — one placement serves all three.
 
 ## Team Workflow
 
 Install with `--project` and commit the manifest:
 
 ```bash
-napoln add owner/repo/skills/code-review --project
+napoln add owner/repo --skill code-review --project
 # Creates .napoln/manifest.toml  (commit this)
 # Places into .claude/skills/    (gitignore these)
 ```
@@ -97,14 +105,16 @@ Teammates clone and run:
 
 ```bash
 napoln install
-# ✓ Synced 'code-review' to .claude/skills/code-review
+# ✓ Synced 3 project skills (3 restored)
 ```
+
+`napoln install` syncs both global and project manifests automatically.
 
 ## Documentation
 
 - [SPEC.md](SPEC.md) — Full specification: store, placement, merge, CLI, manifest schema
 - [ARCHITECTURE.md](ARCHITECTURE.md) — Architecture decisions and prior art analysis
-- [STORIES.md](STORIES.md) — BDD user stories and detailed command output examples
+- [CONTRIBUTING.md](CONTRIBUTING.md) — Development setup, testing, how to add commands and agents
 
 ## License
 

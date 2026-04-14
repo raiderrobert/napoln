@@ -74,7 +74,7 @@ def read_manifest(path: Path) -> Manifest:
         raise ManifestError(
             f"Could not read manifest: {path}",
             cause=str(e),
-            fix="Check the file for syntax errors or run `napoln doctor`.",
+            fix="Check the file for syntax errors or run `napoln config doctor`.",
         )
 
     manifest = Manifest()

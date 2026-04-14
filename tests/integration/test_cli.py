@@ -210,7 +210,7 @@ class TestInstallCommand:
     def test_install_all_in_sync(self, runner, isolated_env, local_skill):
         _, _, env = isolated_env
         runner.invoke(app, ["add", str(local_skill)], env=env)
-        result = runner.invoke(app, ["install"], env=env)
+        result = runner.invoke(app, ["install", "--global"], env=env)
 
         assert result.exit_code == 0
         assert "up to date" in result.output
@@ -224,7 +224,7 @@ class TestInstallCommand:
     def test_install_dry_run(self, runner, isolated_env, local_skill):
         _, _, env = isolated_env
         runner.invoke(app, ["add", str(local_skill)], env=env)
-        result = runner.invoke(app, ["install", "--dry-run"], env=env)
+        result = runner.invoke(app, ["install", "--global", "--dry-run"], env=env)
         assert result.exit_code == 0
 
 
