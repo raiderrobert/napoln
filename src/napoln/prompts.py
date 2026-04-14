@@ -69,6 +69,14 @@ def pick_skills(choices: list[SkillChoice]) -> list[SkillChoice]:
         return choices
 
     import questionary
+    from questionary import constants as q_constants
+    from questionary.prompts import common as q_common
+
+    # Replace unicode indicators with ASCII so they render in any font.
+    q_constants.INDICATOR_SELECTED = "[x]"
+    q_constants.INDICATOR_UNSELECTED = "[ ]"
+    q_common.INDICATOR_SELECTED = "[x]"
+    q_common.INDICATOR_UNSELECTED = "[ ]"
 
     # Find longest name for alignment
     max_name = max(len(c.name) for c in choices) if choices else 0
