@@ -50,7 +50,10 @@ class TestVersionCommand:
         result = runner.invoke(app, ["--version"])
         assert result.exit_code == 0
         assert "napoln" in result.output
-        assert "0.1.0" in result.output
+        # Check for semver-like pattern (e.g. "0.2.0", "1.0.0+abc123")
+        import re
+
+        assert re.search(r"\d+\.\d+\.\d+", result.output)
 
 
 class TestHelpCommand:
