@@ -21,3 +21,5 @@ Thumbs.db
 .gemini/skills/
 .agents/skills/
 .pi/skills/
+.coverage
+.pytest_cache/
