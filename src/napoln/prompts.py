@@ -160,7 +160,7 @@ def pick_agents(
     style = questionary.Style([("selected", "noreverse")])
 
     selected = questionary.checkbox(
-        "Select default agents (skills will install to these unless overridden):",
+        "Default agents:",
         choices=options,
         style=style,
     ).ask()
