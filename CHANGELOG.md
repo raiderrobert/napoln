@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.2.3](https://github.com/raiderrobert/napoln/compare/v0.2.2...v0.2.3) (2026-04-15)
+
+
+### Features
+
+* mark already-installed skills as pre-checked in picker ([d615b58](https://github.com/raiderrobert/napoln/commit/d615b5814d3d13f56aeaff2ecacb4df1ce67c991))
+
+
+### Bug Fixes
+
+* distinct color for checked skill picker indicator ([3e0a0d6](https://github.com/raiderrobert/napoln/commit/3e0a0d6e560606a9a0c9b8ec0d0e1c2166b166bf))
+* skill picker indicators render cleanly across terminals ([d257369](https://github.com/raiderrobert/napoln/commit/d257369fc15a97bb37afd4bf9137499e1ddebf61))
+* **tests:** isolate cwd in CLI fixture to prevent project-scope leakage ([#15](https://github.com/raiderrobert/napoln/issues/15)) ([5b9c2e4](https://github.com/raiderrobert/napoln/commit/5b9c2e4321b81950d9e1ae89cf49a2de53d7ac4b))
+* use ASCII checkbox indicators in skill picker ([c3c862a](https://github.com/raiderrobert/napoln/commit/c3c862afae8fc3b03ba5d406513c8ea8a23563e7))
+
 ## [0.2.2](https://github.com/raiderrobert/napoln/compare/v0.2.1...v0.2.2) (2026-04-14)
 
 
