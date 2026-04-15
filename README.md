@@ -115,8 +115,6 @@ napoln install
 `napoln install` syncs both global and project manifests automatically.
 
 ## Documentation
-
-- [SPEC.md](SPEC.md) — Full specification: store, placement, merge, CLI, manifest schema
 - [ARCHITECTURE.md](ARCHITECTURE.md) — Architecture decisions and prior art analysis
 - [CONTRIBUTING.md](CONTRIBUTING.md) — Development setup, testing, how to add commands and agents
 
