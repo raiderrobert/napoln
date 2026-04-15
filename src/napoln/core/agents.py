@@ -6,6 +6,7 @@ Supports: Claude Code, Gemini CLI, pi, Codex, Cursor.
 from __future__ import annotations
 
 import shutil
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -137,22 +138,52 @@ def detect_agents(
     return detected
 
 
+def load_default_agent_ids(napoln_home: Path) -> list[str]:
+    """Read configured default_agents from napoln config.toml.
+
+    Returns an empty list if the config does not exist or has no defaults set.
+    Unknown agent IDs are silently dropped (the config command validates input,
+    but a config file edited by hand may contain stale entries).
+    """
+    config_path = napoln_home / "config.toml"
+    if not config_path.exists():
+        return []
+    try:
+        data = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return []
+    raw = data.get("napoln", {}).get("default_agents", [])
+    if not isinstance(raw, list):
+        return []
+    return [aid for aid in raw if isinstance(aid, str) and aid in AGENTS]
+
+
 def resolve_agents(
-    agent_ids: list[str] | None, home: Path, project_root: Path | None = None, scope: str = "global"
+    agent_ids: list[str] | None,
+    home: Path,
+    project_root: Path | None = None,
+    scope: str = "global",
+    default_agent_ids: list[str] | None = None,
 ) -> list[AgentConfig]:
-    """Resolve agent list from explicit IDs or auto-detection.
+    """Resolve agent list from explicit IDs, configured defaults, or auto-detection.
+
+    Resolution order:
+        1. Explicit ``agent_ids`` (e.g., from ``--agents`` flag).
+        2. ``default_agent_ids`` (e.g., from ``[napoln].default_agents`` in config.toml).
+        3. Auto-detection of installed agents.
 
     Args:
-        agent_ids: Explicit agent IDs, or None for auto-detect.
+        agent_ids: Explicit agent IDs, or None to fall through to defaults/auto-detect.
         home: User home directory.
         project_root: Project root (for project-scope).
         scope: "global" or "project".
+        default_agent_ids: Configured defaults to prefer over auto-detection.
 
     Returns:
         List of AgentConfig objects.
 
     Raises:
-        ValueError: If an unknown agent ID is specified.
+        ValueError: If an unknown agent ID is specified in ``agent_ids``.
     """
     if agent_ids:
         configs = []
@@ -161,6 +192,9 @@ def resolve_agents(
                 raise ValueError(f"Unknown agent: {aid}. Available: {', '.join(AGENTS.keys())}")
             configs.append(AGENTS[aid])
         return configs
+
+    if default_agent_ids:
+        return [AGENTS[aid] for aid in default_agent_ids if aid in AGENTS]
 
     return detect_agents(home, project_root, scope)
 
