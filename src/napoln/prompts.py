@@ -6,6 +6,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from napoln.core.agents import AgentConfig
+
 
 @dataclass
 class SkillChoice:
@@ -107,5 +109,60 @@ def pick_skills(choices: list[SkillChoice]) -> list[SkillChoice]:
     if selected is None:
         # User pressed ctrl-c
         return []
+
+    return selected
+
+
+def pick_agents(
+    available: list[AgentConfig],
+    preselected_ids: list[str] | None = None,
+) -> list[AgentConfig] | None:
+    """Interactive checkbox picker for agents.
+
+    Returns the selected agents, or None if the user cancelled (ctrl-c).
+    Returns an empty list if the user confirmed with nothing selected.
+
+    Falls back to selecting all available agents in non-TTY environments so
+    automation does not hang.
+    """
+    if not available:
+        return []
+
+    if not sys.stdin.isatty():
+        return list(available)
+
+    import questionary
+    from questionary import constants as q_constants
+    from questionary.prompts import common as q_common
+
+    q_constants.INDICATOR_SELECTED = "✓"
+    q_constants.INDICATOR_UNSELECTED = " "
+    q_common.INDICATOR_SELECTED = "✓"
+    q_common.INDICATOR_UNSELECTED = " "
+
+    preselected = set(preselected_ids or [])
+    max_name = max(len(a.display_name) for a in available)
+
+    options = []
+    for agent in available:
+        tokens: list[tuple[str, str]] = [
+            ("class:text", f"{agent.display_name:<{max_name}}"),
+            ("class:text", f"  ({agent.id})"),
+        ]
+        options.append(
+            questionary.Choice(
+                title=tokens,
+                value=agent,
+                checked=agent.id in preselected,
+            )
+        )
+
+    style = questionary.Style([("selected", "noreverse")])
+
+    selected = questionary.checkbox(
+        "Select default agents (skills will install to these unless overridden):",
+        choices=options,
+        style=style,
+    ).ask()
 
     return selected
