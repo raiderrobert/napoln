@@ -417,24 +417,3 @@ napoln/
 │   └── fixtures/               # Test skill directories
 └── README.md
 ```
-
----
-
-## Resolved Questions
-
-1. **Registry at launch?** No. v0.1 ships with git-only sources. The CLI parses registry identifiers and returns a clear "not yet available" message.
-
-2. **Lock file?** No. The manifest pins exact versions and content hashes, which provides sufficient reproducibility. A lock file adds value when there are transitive dependencies — skills don't have dependencies on other skills.
-
-3. **Skill authoring format:** A directory with `SKILL.md`. No `napoln.toml` required. Existing skill repos work without modification.
-
-4. **Agent-specific frontmatter:** One SKILL.md serves all agents. Agents ignore fields they don't understand.
-
-5. **`.gitignore` strategy:** Commit the manifest, gitignore the placements. Team members run `napoln install` after clone.
-
-## Future Considerations
-
-- **Registry API and web UI** for discovery beyond git
-- **Compile-to-agent adapter** if agent formats diverge significantly
-- **Skill dependencies** and a lock file if skills ever depend on other skills
-- **Telemetry** with opt-in collection and transparent audit
