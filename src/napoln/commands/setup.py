@@ -80,8 +80,10 @@ def run_setup(force: bool = False) -> int:
     output.header("napoln setup")
     output.info(f"Detected {len(detected)} agent(s) on this machine.")
 
-    preselected = existing or [a.id for a in detected]
-    selected = pick_agents(detected, preselected_ids=preselected)
+    # Only preselect agents already in config; on first run the list is empty
+    # so the user has to actively pick — having a tool installed is not the
+    # same as wanting skills installed into it.
+    selected = pick_agents(detected, preselected_ids=existing)
 
     if selected is None:
         output.warning("Setup cancelled.")
