@@ -224,14 +224,34 @@ def _pick_from_multi_skill_repo(
 
     output.info(f"Found {len(err.skill_dirs)} skills in {source}")
 
-    choices = [
-        SkillChoice(
-            name=sd.name,
-            description=_extract_description(sd),
-            path=sd,
+    # Collect sources already recorded in any reachable manifest so we can
+    # flag matching entries in the picker as installed.
+    installed_sources: set[str] = set()
+    for scope, root in (("global", None), ("project", Path.cwd())):
+        mf_path = manifest.get_manifest_path(napoln_home, scope, root)
+        if not mf_path.exists():
+            continue
+        try:
+            mf = manifest.read_manifest(mf_path)
+        except Exception:
+            continue
+        for entry in mf.skills.values():
+            installed_sources.add(entry.source)
+
+    source_id = f"{parsed.host}/{parsed.owner}/{parsed.repo}" if parsed.host else source
+
+    choices = []
+    for sd in sorted(err.skill_dirs, key=lambda d: d.name):
+        rel = sd.relative_to(err.repo_dir)
+        sid = f"{source_id}/{rel}" if str(rel) != "." else source_id
+        choices.append(
+            SkillChoice(
+                name=sd.name,
+                description=_extract_description(sd),
+                path=sd,
+                installed=sid in installed_sources,
+            )
         )
-        for sd in sorted(err.skill_dirs, key=lambda d: d.name)
-    ]
 
     selected = pick_skills(choices)
     if not selected:
@@ -240,7 +260,6 @@ def _pick_from_multi_skill_repo(
 
     # Resolve the git ref for version
     ref = parsed.version or version_constraint or ""
-    source_id = f"{parsed.host}/{parsed.owner}/{parsed.repo}" if parsed.host else source
 
     results = []
     for choice in selected:
