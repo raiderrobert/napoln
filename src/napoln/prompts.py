@@ -14,6 +14,7 @@ class SkillChoice:
     name: str
     description: str
     path: Path
+    installed: bool = False
 
 
 def _short_description(desc: str, max_len: int = 60) -> str:
@@ -79,7 +80,6 @@ def pick_skills(choices: list[SkillChoice]) -> list[SkillChoice]:
     q_common.INDICATOR_SELECTED = "✓"
     q_common.INDICATOR_UNSELECTED = " "
 
-    # Find longest name for alignment
     max_name = max(len(c.name) for c in choices) if choices else 0
 
     options = []
@@ -91,7 +91,8 @@ def pick_skills(choices: list[SkillChoice]) -> list[SkillChoice]:
         tokens: list[tuple[str, str]] = [("class:text", f"{c.name:<{max_name}}")]
         if short:
             tokens.append(("class:text", f"  {short}"))
-        options.append(questionary.Choice(title=tokens, value=c, checked=False))
+        # Already-installed skills are pre-checked. The ✓ carries the signal.
+        options.append(questionary.Choice(title=tokens, value=c, checked=c.installed))
 
     # prompt_toolkit's built-in default applies "reverse" to class:selected,
     # which inverts the ✓ indicator. Explicitly cancel it.
