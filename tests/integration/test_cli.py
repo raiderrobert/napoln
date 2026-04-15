@@ -16,7 +16,7 @@ def runner():
 
 
 @pytest.fixture
-def isolated_env(tmp_path):
+def isolated_env(tmp_path, monkeypatch):
     """Create an isolated environment for CLI tests."""
     home = tmp_path / "home"
     home.mkdir()
@@ -24,6 +24,12 @@ def isolated_env(tmp_path):
 
     # Create agent directories so auto-detect works
     (home / ".claude").mkdir()
+
+    # Chdir into a sandbox so commands that resolve project scope via Path.cwd()
+    # (e.g. `add --project`) don't write into the real repo.
+    project = tmp_path / "project"
+    project.mkdir()
+    monkeypatch.chdir(project)
 
     env = {
         "HOME": str(home),
