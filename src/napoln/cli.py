@@ -233,6 +233,23 @@ def init(
     raise typer.Exit(code=exit_code)
 
 
+# ─── setup ────────────────────────────────────────────────────────────────────
+
+
+@app.command()
+def setup(
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Re-run setup even if default agents are already configured."),
+    ] = False,
+) -> None:
+    """Choose which agents `napoln add` should install to by default."""
+    from napoln.commands.setup import run_setup
+
+    exit_code = run_setup(force=force)
+    raise typer.Exit(code=exit_code)
+
+
 # ─── config ───────────────────────────────────────────────────────────────────
 
 

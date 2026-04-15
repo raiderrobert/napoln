@@ -349,9 +349,12 @@ def run_add(
     else:
         resolved_list = [resolved_result]
 
-    # Detect agents
+    # Detect agents — prefer configured defaults over auto-detection
+    default_agent_ids = agents_mod.load_default_agent_ids(napoln_home)
     try:
-        agent_configs = agents_mod.resolve_agents(agent_ids, home, project_root, scope)
+        agent_configs = agents_mod.resolve_agents(
+            agent_ids, home, project_root, scope, default_agent_ids=default_agent_ids
+        )
     except ValueError as e:
         output.error(str(e))
         return 1
@@ -362,6 +365,14 @@ def run_add(
             fix="Specify agents with --agents, e.g.:\n  napoln add <source> --agents claude-code,pi",
         )
         return 1
+
+    # If the user has multiple agents installed but never configured defaults,
+    # nudge them toward `napoln setup` so they don't keep spray-installing.
+    if agent_ids is None and not default_agent_ids and scope == "global" and len(agent_configs) > 1:
+        output.info(
+            f"Installing to all {len(agent_configs)} detected agents. "
+            "Run `napoln setup` to choose defaults."
+        )
 
     if dry_run:
         output.dry_run_header()
