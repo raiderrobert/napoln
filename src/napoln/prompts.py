@@ -76,11 +76,12 @@ def pick_skills(choices: list[SkillChoice]) -> list[SkillChoice]:
     from questionary.prompts import common as q_common
 
     # Use ✓ and a blank cell as indicators. Some terminal fonts don't render
-    # the default ○/● glyphs distinctly.
-    q_constants.INDICATOR_SELECTED = "✓"
-    q_constants.INDICATOR_UNSELECTED = " "
-    q_common.INDICATOR_SELECTED = "✓"
-    q_common.INDICATOR_UNSELECTED = " "
+    # the default ○/● glyphs distinctly. setattr bypasses ty's complaint about
+    # questionary's Literal-typed module constants.
+    setattr(q_constants, "INDICATOR_SELECTED", "✓")
+    setattr(q_constants, "INDICATOR_UNSELECTED", " ")
+    setattr(q_common, "INDICATOR_SELECTED", "✓")
+    setattr(q_common, "INDICATOR_UNSELECTED", " ")
 
     max_name = max(len(c.name) for c in choices) if choices else 0
 
@@ -135,10 +136,10 @@ def pick_agents(
     from questionary import constants as q_constants
     from questionary.prompts import common as q_common
 
-    q_constants.INDICATOR_SELECTED = "✓"
-    q_constants.INDICATOR_UNSELECTED = " "
-    q_common.INDICATOR_SELECTED = "✓"
-    q_common.INDICATOR_UNSELECTED = " "
+    setattr(q_constants, "INDICATOR_SELECTED", "✓")
+    setattr(q_constants, "INDICATOR_UNSELECTED", " ")
+    setattr(q_common, "INDICATOR_SELECTED", "✓")
+    setattr(q_common, "INDICATOR_UNSELECTED", " ")
 
     preselected = set(preselected_ids or [])
     max_name = max(len(a.display_name) for a in available)

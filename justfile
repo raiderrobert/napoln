@@ -2,10 +2,11 @@
 default:
     @just --list
 
-# Run all checks (fmt, lint, test)
+# Run all checks (fmt, lint, type, test)
 check:
     uv run ruff format --check src/ tests/
     uv run ruff check src/ tests/
+    uv run ty check src/
     uv run pytest
 
 # Run tests
