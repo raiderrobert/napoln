@@ -30,12 +30,13 @@ dev = [
     "pytest-bdd>=8.1",
     "pytest-cov>=7.1",
     "ruff>=0.9",
-    "ty>=0.0.1a8",
+    "ty>=0.0.30",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+addopts = "-q --tb=short"
 
 [tool.ruff]
 target-version = "py311"
