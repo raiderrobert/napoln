@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-
+from typing import cast
 
 from napoln import output
 from napoln.core import agents as agents_mod
@@ -343,9 +343,10 @@ def run_add(
         output.error(str(e), cause=e.cause, fix=e.fix)
         return 1
 
-    # Normalize to a list
+    # Normalize to a list. ty's isinstance narrowing on a `T | list[T]` union
+    # leaves a quirky intersection, so cast through after the runtime check.
     if isinstance(resolved_result, list):
-        resolved_list = resolved_result
+        resolved_list: list[ResolvedSource] = cast(list[ResolvedSource], resolved_result)
     else:
         resolved_list = [resolved_result]
 

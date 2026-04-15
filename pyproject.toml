@@ -30,6 +30,7 @@ dev = [
     "pytest-bdd>=8.1",
     "pytest-cov>=7.1",
     "ruff>=0.9",
+    "ty>=0.0.1a8",
 ]
 
 [tool.pytest.ini_options]
