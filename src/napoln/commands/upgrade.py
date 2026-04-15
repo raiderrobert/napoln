@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 from napoln import output
 from napoln.core import linker, manifest, merger, store
-from napoln.core.resolver import parse_source, resolve_git, resolve_local
+from napoln.core.resolver import ResolvedSource, parse_source, resolve_git, resolve_local
 from napoln.errors import ResolverError
 
 
@@ -98,6 +99,7 @@ def _upgrade_skill(
         if version_constraint:
             parsed.version = version_constraint
 
+        resolved: ResolvedSource
         if parsed.source_type == "local":
             resolved = resolve_local(parsed)
         elif parsed.source_type == "git":
@@ -107,7 +109,8 @@ def _upgrade_skill(
             # during upgrade the manifest source already has a path,
             # so we always expect a single result.
             if isinstance(result, list):
-                match = [r for r in result if r.skill_name == skill_name]
+                result_list = cast(list[ResolvedSource], result)
+                match = [r for r in result_list if r.skill_name == skill_name]
                 if not match:
                     output.error(f"Skill '{skill_name}' not found in resolved sources.")
                     return 1
