@@ -61,8 +61,11 @@ def test_script_kept():
 
 
 @given("Claude Code is installed", target_fixture="env")
-def claude_installed(napoln_env: NapolnTestEnv):
+def claude_installed(napoln_env: NapolnTestEnv, monkeypatch):
     (napoln_env.home / ".claude").mkdir(parents=True, exist_ok=True)
+    # Block PATH-based detection so pi/codex on the developer's machine don't
+    # leak into the test and create a second shared `.agents/skills/` placement.
+    monkeypatch.setattr("napoln.core.agents._check_on_path", lambda cmd: False)
     return napoln_env
 
 
