@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/raiderrobert/napoln/compare/v0.2.3...v0.2.4) (2026-04-15)
+
+
+### Features
+
+* add `napoln setup` to choose default agents ([#16](https://github.com/raiderrobert/napoln/issues/16)) ([e8d78a6](https://github.com/raiderrobert/napoln/commit/e8d78a6f74c3c2dfa6fb02d422b594bbb324645b))
+
 ## [0.2.3](https://github.com/raiderrobert/napoln/compare/v0.2.2...v0.2.3) (2026-04-15)
 
 
