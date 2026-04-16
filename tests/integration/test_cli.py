@@ -279,9 +279,7 @@ class TestRemoveCommand:
         runner.invoke(app, ["add", str(skill_b)], env=env)
 
         # Remove skill-a explicitly and skill-b via from-source
-        result = runner.invoke(
-            app, ["remove", "skill-a", "--from-source", "raiderrobert/other"], env=env
-        )
+        runner.invoke(app, ["remove", "skill-a", "--from-source", "raiderrobert/other"], env=env)
         # skill-a should be removed, skill-b stays (no match)
         assert not (home / ".claude" / "skills" / "skill-a").exists()
         assert (home / ".claude" / "skills" / "skill-b").exists()
