@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.5](https://github.com/raiderrobert/napoln/compare/v0.2.4...v0.2.5) (2026-04-16)
+
+
+### Bug Fixes
+
+* change bundled skill ([dff4f1d](https://github.com/raiderrobert/napoln/commit/dff4f1d25b4dd2a0241f29b31507117a62a3620b))
+* **tests:** block PATH agent detection in upgrade tests ([f656f33](https://github.com/raiderrobert/napoln/commit/f656f333ff1817e9218029b78b6c75f8faabe357))
+
+
+### Documentation
+
+* remove spec mention ([3c3386b](https://github.com/raiderrobert/napoln/commit/3c3386ba46d3eaf6893cdf2a1c002f734be460d8))
+
 ## [0.2.4](https://github.com/raiderrobert/napoln/compare/v0.2.3...v0.2.4) (2026-04-15)
 
 
