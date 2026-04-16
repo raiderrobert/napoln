@@ -35,7 +35,7 @@ On first run, napoln installs its bundled management skill so your agents
 know how to use it. After that, your agents can find and install new
 capabilities without prompting you for CLI commands.
 
-<script src="https://asciinema.org/a/vTsCZqUglgGfRwgU.js" async></script>
+![napoln demo](napoln-demo.gif)
 
 Agents prefer `uvx napoln` so they never hit PATH issues. The bundled
 skill is automatically installed alongside your first skill, so it works
