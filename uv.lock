@@ -431,7 +431,7 @@ requires-dist = [
     { name = "reflink", specifier = ">=0.2.2" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9" },
     { name = "tomli-w", specifier = ">=1.2" },
-    { name = "ty", marker = "extra == 'dev'", specifier = ">=0.0.1a8" },
+    { name = "ty", marker = "extra == 'dev'", specifier = ">=0.0.30" },
     { name = "typer", specifier = ">=0.12" },
 ]
 
