@@ -2,6 +2,8 @@
 
 A package manager for [agent skills](https://agentskills.io/specification). Install from any git repo, upgrade without losing your customizations, and manage skills across every agent you use.
 
+![napoln demo](napoln-demo.gif)
+
 > *"I don't even have any good skills. You know, like nunchuck skills, bow hunting skills, computer hacking skills."*
 
 - **Multi-agent.** One command places skills into Claude Code, Gemini CLI, pi, Codex, and Cursor.
@@ -34,8 +36,6 @@ pip install napoln        # plain pip
 On first run, napoln installs its bundled management skill so your agents
 know how to use it. After that, your agents can find and install new
 capabilities without prompting you for CLI commands.
-
-![napoln demo](napoln-demo.gif)
 
 Agents prefer `uvx napoln` so they never hit PATH issues. The bundled
 skill is automatically installed alongside your first skill, so it works
