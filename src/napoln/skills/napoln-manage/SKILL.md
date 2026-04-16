@@ -12,67 +12,84 @@ metadata:
 
 # napoln — Skill Manager
 
-napoln manages reusable skills for AI coding agents. You can help the user
-manage their skills using the `napoln` CLI.
+napoln manages reusable skills for AI coding agents. When running commands
+for the user, prefer `uvx napoln` over bare `napoln` to avoid PATH issues.
+
+## Running Commands
+
+napoln is installed as a Python tool and may not be in PATH when an agent
+runs. Use `uvx` to invoke it without relying on PATH:
+
+```bash
+uvx napoln add owner/repo            # add (preferred — no PATH dependency)
+uvx napoln list                     # list
+uvx napoln upgrade                  # upgrade
+uvx napoln remove <name>            # remove
+uvx napoln install                  # sync from manifests
+uvx napoln init my-skill            # scaffold a new skill
+uvx napoln config doctor            # verify integrity
+```
+
+If `uvx` is unavailable, fall back to `python -m napoln` or `pipx run napoln`.
 
 ## Install a Skill
 
 ```bash
 # From a git repository
-napoln add owner/repo                    # Interactive picker for multi-skill repos
-napoln add owner/repo --all              # Install all skills from a repo
-napoln add owner/repo --skill name       # Install a specific skill by name
-napoln add owner/repo@v1.2.0            # Pinned version
+uvx napoln add owner/repo                    # Interactive picker for multi-skill repos
+uvx napoln add owner/repo --all              # Install all skills from a repo
+uvx napoln add owner/repo --skill name       # Install a specific skill by name
+uvx napoln add owner/repo@v1.2.0            # Pinned version
 
 # From a local path
-napoln add ./path/to/skill
+uvx napoln add ./path/to/skill
 ```
 
 ## Check What's Installed
 
 ```bash
-napoln list              # Show all installed skills and their placements
-napoln list -v           # Show full placement paths
-napoln list --json       # Machine-readable output
+uvx napoln list              # Show all installed skills and their placements
+uvx napoln list -v           # Show full placement paths
+uvx napoln list --json       # Machine-readable output
 ```
 
 ## Upgrade Skills
 
 ```bash
-napoln upgrade              # Upgrade all skills
-napoln upgrade <name>       # Upgrade specific skill
-napoln upgrade --dry-run    # Preview changes without applying
+uvx napoln upgrade              # Upgrade all skills
+uvx napoln upgrade <name>       # Upgrade specific skill
+uvx napoln upgrade --dry-run    # Preview changes without applying
 ```
 
 If upgrade produces merge conflicts (the user customized a skill and the
 upstream also changed the same lines):
 1. Conflicts appear as `<<<<<<<` / `=======` / `>>>>>>>` markers in SKILL.md
 2. Edit the file to resolve — keep the best of both versions
-3. Run `napoln upgrade <name>` again to complete the upgrade
+3. Run `uvx napoln upgrade <name>` again to complete the upgrade
 
 ## Remove a Skill
 
 ```bash
-napoln remove <name>
+uvx napoln remove <name>
 ```
 
 ## Scaffold a New Skill
 
 ```bash
-napoln init my-skill      # Creates my-skill/SKILL.md
-napoln init               # Creates SKILL.md in current directory
+uvx napoln init my-skill      # Creates my-skill/SKILL.md
+uvx napoln init               # Creates SKILL.md in current directory
 ```
 
 ## Restore / Sync
 
 ```bash
-napoln install            # Restore all placements from manifests
+uvx napoln install            # Restore all placements from manifests
 ```
 
 ## Housekeeping
 
 ```bash
-napoln config             # View configuration and detected agents
-napoln config doctor      # Verify store integrity and placement validity
-napoln config gc          # Remove unreferenced store entries
+uvx napoln config             # View configuration and detected agents
+uvx napoln config doctor      # Verify store integrity and placement validity
+uvx napoln config gc          # Remove unreferenced store entries
 ```
