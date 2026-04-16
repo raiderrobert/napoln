@@ -2,8 +2,6 @@
 
 A package manager for [agent skills](https://agentskills.io/specification). Install from any git repo, upgrade without losing your customizations, and manage skills across every agent you use.
 
-![napoln demo](napoln-demo.gif)
-
 > *"I don't even have any good skills. You know, like nunchuck skills, bow hunting skills, computer hacking skills."*
 
 - **Multi-agent.** One command places skills into Claude Code, Gemini CLI, pi, Codex, and Cursor.
@@ -12,6 +10,8 @@ A package manager for [agent skills](https://agentskills.io/specification). Inst
 - **Content-addressed.** Every stored version has a deterministic SHA-256 hash.
 - **Zero-copy placement.** Reflink (copy-on-write) on APFS and btrfs. Full copy fallback elsewhere.
 - **Self-describing.** A bundled skill teaches your agents how to use napoln.
+
+![napoln demo](napoln-demo.gif)
 
 ## Install
 
