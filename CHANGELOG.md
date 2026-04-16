@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.6](https://github.com/raiderrobert/napoln/compare/v0.2.5...v0.2.6) (2026-04-16)
+
+
+### Documentation
+
+* add asciinema demo to README ([94876fa](https://github.com/raiderrobert/napoln/commit/94876fa2ec25f5c043d00b24f37c743418cc56bf))
+* add GIF demo of agent installing skills ([7c3d6cb](https://github.com/raiderrobert/napoln/commit/7c3d6cbde2857353fe5a7ce647cc2fddbd348ab8))
+* move demo GIF to top of README ([33eb773](https://github.com/raiderrobert/napoln/commit/33eb773d0d1aa21392ee1b0efd0ec578901a5217))
+* restructure README like uv ([8adc744](https://github.com/raiderrobert/napoln/commit/8adc7449a6bf8b37081ef2b02887cfc246355405))
+* reorg ([67423c9](https://github.com/raiderrobert/napoln/commit/67423c96317c64576a508d36ed22b073ccf1b70e))
+
 ## [0.2.5](https://github.com/raiderrobert/napoln/compare/v0.2.4...v0.2.5) (2026-04-16)
 
 
