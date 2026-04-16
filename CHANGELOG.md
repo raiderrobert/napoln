@@ -1,5 +1,66 @@
 # Changelog
 
+## [0.3.0](https://github.com/raiderrobert/napoln/compare/v0.2.5...v0.3.0) (2026-04-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* Removed commands: status, diff, resolve, sync, doctor, gc, telemetry.
+
+### Features
+
+* add --paths flag to list command ([f08ef25](https://github.com/raiderrobert/napoln/commit/f08ef255b8a44d2dc6601b51b309fce65a3f1040))
+* add --skill '*' for multi-skill repo installs ([9307e57](https://github.com/raiderrobert/napoln/commit/9307e574a04957fb83a1846d6318b18cc38deff3))
+* add `napoln setup` to choose default agents ([#16](https://github.com/raiderrobert/napoln/issues/16)) ([173f581](https://github.com/raiderrobert/napoln/commit/173f58179af7bd8b459f8db326977c3c448c4c00))
+* initial project structure and core modules ([16cbc5e](https://github.com/raiderrobert/napoln/commit/16cbc5ec4ae4a850ad8eed00e8c1909b54463b69))
+* interactive skill picker for multi-skill repos ([4292b16](https://github.com/raiderrobert/napoln/commit/4292b16ad7a6d2958dfce6f08be8e08b749646e8))
+* mark already-installed skills as pre-checked in picker ([6596b0c](https://github.com/raiderrobert/napoln/commit/6596b0cd090af703bdf1c3dcee6536354f404e97))
+
+
+### Bug Fixes
+
+* catch ReflinkImpossibleError on Linux (ext4) ([d1988d0](https://github.com/raiderrobert/napoln/commit/d1988d0204baa7e7e2c216788ac85df2a61b10eb))
+* change bundled skill ([1ea7e2d](https://github.com/raiderrobert/napoln/commit/1ea7e2d1a270ba84f5dd922f0c0390006c0a153d))
+* distinct color for checked skill picker indicator ([882b242](https://github.com/raiderrobert/napoln/commit/882b242f53cf8d772259e5903fa43f80c7df6981))
+* don't hardcode version in test_version assertion ([263a3c9](https://github.com/raiderrobert/napoln/commit/263a3c9b5ba2f58970a0d91561e677d3db716d7a))
+* don't update manifest/provenance when upgrade has conflicts ([0a1d780](https://github.com/raiderrobert/napoln/commit/0a1d780e02712a177a9a3b92acceb0168353b603))
+* improve interactive skill picker display ([9e04865](https://github.com/raiderrobert/napoln/commit/9e0486578a1260b9fd8d6f57683953e99e9effad))
+* list output formatting ([3e576d2](https://github.com/raiderrobert/napoln/commit/3e576d2995d813d9d60c37671eeafb92e58085e3))
+* project-scope test needs explicit --agents on CI ([b4ddc3d](https://github.com/raiderrobert/napoln/commit/b4ddc3daebb59ab7a5da6d5c5eab4cb68aa9251b))
+* rename --long to --verbose/-v for list command ([36351e7](https://github.com/raiderrobert/napoln/commit/36351e73433c08956455bb83f95447831cea3253))
+* rename --paths to --long/-l for list command ([490c9ca](https://github.com/raiderrobert/napoln/commit/490c9caf5b01e83bb35185dc5fbea85f195f77ca))
+* resolve git versions properly from tags, refs, or HEAD hash ([c97cb9a](https://github.com/raiderrobert/napoln/commit/c97cb9a00f1d8e0b1389ce5d03519efbc405ac6e))
+* resolve test failures in CLI config and BDD agent detection ([0678308](https://github.com/raiderrobert/napoln/commit/06783088a15ac2577a5bd1716e962121e8d8620f))
+* show agent dirs (.claude, .cursor, .agents) in list header ([72519b1](https://github.com/raiderrobert/napoln/commit/72519b1afd365e0cedb179bb4ec09d9c1c149703))
+* show agent names instead of paths in list header ([c444690](https://github.com/raiderrobert/napoln/commit/c4446903babb8599369f63dc3df1ba713b11a225))
+* skill picker highlight no longer fills entire line ([dabafec](https://github.com/raiderrobert/napoln/commit/dabafecb219c62a26689df4f6f95b2bd7b45e110))
+* skill picker indicators render cleanly across terminals ([6a9cdb7](https://github.com/raiderrobert/napoln/commit/6a9cdb7f9b73b2ab2707fce845943c1353826117))
+* **tests:** block PATH agent detection in upgrade tests ([79bb0f7](https://github.com/raiderrobert/napoln/commit/79bb0f7f4ca3beb005adce22ff1ecb659a9a741d))
+* **tests:** isolate cwd in CLI fixture to prevent project-scope leakage ([#15](https://github.com/raiderrobert/napoln/issues/15)) ([6808ce9](https://github.com/raiderrobert/napoln/commit/6808ce90370f3668156d620905c41a2ca09cf66f))
+* use ASCII checkbox indicators in skill picker ([8ddebd3](https://github.com/raiderrobert/napoln/commit/8ddebd3c2ea492795e630b361b8737243b5f4063))
+
+
+### Documentation
+
+* add asciinema demo to README ([cf1876b](https://github.com/raiderrobert/napoln/commit/cf1876bcd031535cf430d922951d780d5e39a66e))
+* add GIF demo of agent installing skills ([41fc29a](https://github.com/raiderrobert/napoln/commit/41fc29afff326a7191ea6c9c040e88a40abc96a1))
+* clean up ARCHITECTURE.md language ([9da32e2](https://github.com/raiderrobert/napoln/commit/9da32e28fefac742e8a39095d26d7df8048fb573))
+* CLI redesign spec with BDD scenarios ([053b929](https://github.com/raiderrobert/napoln/commit/053b929c3a19b2c082b628c997d3b5d26cbe1ff9))
+* move demo GIF to top of README ([6f7392d](https://github.com/raiderrobert/napoln/commit/6f7392d3f8aacbe358a454121001477a9cdf7646))
+* move design principles and prior art to ARCHITECTURE.md ([4836725](https://github.com/raiderrobert/napoln/commit/4836725dd9a57ec5907e64c0dd8347a89aecbc8b))
+* remove closing quote ([2165696](https://github.com/raiderrobert/napoln/commit/216569645ee296c883b4c91d9b2874d750d5dffa))
+* remove spec mention ([2a44f93](https://github.com/raiderrobert/napoln/commit/2a44f933605a06f04e356263b0bb95b2fcb0ce53))
+* reorg ([ef371b1](https://github.com/raiderrobert/napoln/commit/ef371b1a82b00973b39fe8c1905b01d1ebb7d5b5))
+* restructure README like uv ([d3c93a5](https://github.com/raiderrobert/napoln/commit/d3c93a5437cdda67ef7da0c1bb3c9e2e8b271219))
+* rewrite README per writing-readmes skill ([6d9bbe4](https://github.com/raiderrobert/napoln/commit/6d9bbe4b9105b3ec8bdbe9745ea48ac3a85d0783))
+* rewrite README with real usage examples and Napoleon Dynamite quotes ([4179966](https://github.com/raiderrobert/napoln/commit/41799668a2f7255184b9e504453389a4871e701c))
+* update README, ARCHITECTURE, CONTRIBUTING, AGENTS.md for 7-command CLI ([94f1e62](https://github.com/raiderrobert/napoln/commit/94f1e62f00ae0898763a364a6121ad8685a78e93))
+
+
+### Code Refactoring
+
+* reduce CLI from 13 commands to 7 ([56a8906](https://github.com/raiderrobert/napoln/commit/56a890659624875ee98fc74ad848de32d6001e74))
+
 ## [0.2.5](https://github.com/raiderrobert/napoln/compare/v0.2.4...v0.2.5) (2026-04-16)
 
 
