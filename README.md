@@ -81,11 +81,30 @@ napoln upgrade code-review
 # ✓ Merged 'code-review' at ~/.claude/skills/code-review (2 files updated)
 ```
 
+Remove one or more skills at once:
+
+```bash
+napoln remove design-audit design-frontend design-preflight
+```
+
+Remove all skills from a specific repository:
+
+```bash
+napoln remove --from-source raiderrobert/flow
+```
+
+Combine explicit names with `--from-source` filter:
+
+```bash
+napoln remove --from-source raiderrobert/flow design-audit
+```
+
 ## Commands
 
 ```
 napoln add <source>           Install skills from a git repo or local path
-napoln remove <name>          Remove an installed skill
+napoln remove <name>...       Remove one or more skills
+napoln remove --from-source  Remove all skills from a specific repository
 napoln upgrade [<name>]       Upgrade one or all skills
 napoln list                   Show installed skills and where they are placed
 napoln install                Restore skill placements from manifests

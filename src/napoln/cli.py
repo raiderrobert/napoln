@@ -98,7 +98,14 @@ def add(
 
 @app.command()
 def remove(
-    name: Annotated[str, typer.Argument(help="Skill name to remove.")],
+    name: Annotated[list[str], typer.Argument(help="Skill name(s) to remove.")] = [],
+    from_source: Annotated[
+        Optional[str],
+        typer.Option(
+            "--from-source",
+            help="Remove all skills from this repository (e.g., raiderrobert/flow or https://github.com/owner/repo).",
+        ),
+    ] = None,
     project: Annotated[
         bool, typer.Option("--project", "-p", help="Remove from project scope.")
     ] = False,
@@ -107,7 +114,7 @@ def remove(
     ] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would happen.")] = False,
 ) -> None:
-    """Remove an installed skill."""
+    """Remove one or more installed skills."""
     from napoln.commands.remove import run_remove
 
     agent_ids = [a.strip() for a in agents.split(",")] if agents else None
@@ -115,7 +122,8 @@ def remove(
     project_root = Path.cwd() if project else None
 
     exit_code = run_remove(
-        name=name,
+        names=name,
+        from_source=from_source,
         agent_ids=agent_ids,
         scope=scope,
         project_root=project_root,

@@ -24,7 +24,7 @@ runs. Use `uvx` to invoke it without relying on PATH:
 uvx napoln add owner/repo            # add (preferred — no PATH dependency)
 uvx napoln list                     # list
 uvx napoln upgrade                  # upgrade
-uvx napoln remove <name>            # remove
+uvx napoln remove <name>...       # remove (or --from-source)
 uvx napoln install                  # sync from manifests
 uvx napoln init my-skill            # scaffold a new skill
 uvx napoln config doctor            # verify integrity
@@ -69,8 +69,22 @@ upstream also changed the same lines):
 
 ## Remove a Skill
 
+Remove one or more skills:
+
 ```bash
-uvx napoln remove <name>
+uvx napoln remove design-audit design-frontend design-preflight
+```
+
+Remove all skills from a specific repository:
+
+```bash
+uvx napoln remove --from-source raiderrobert/flow
+```
+
+Combine explicit names with `--from-source` filter:
+
+```bash
+uvx napoln remove --from-source raiderrobert/flow design-audit
 ```
 
 ## Scaffold a New Skill

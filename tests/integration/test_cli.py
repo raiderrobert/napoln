@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 import pytest
+import tomli_w
 from typer.testing import CliRunner
 
 from napoln.cli import app
@@ -185,6 +186,103 @@ class TestRemoveCommand:
         assert "Dry run" in result.output
         # Skill should still be placed
         assert (home / ".claude" / "skills" / "test-skill" / "SKILL.md").exists()
+
+    def test_remove_multiple_names(self, runner, isolated_env, tmp_path):
+        """Remove multiple skills at once."""
+        home, napoln_home, env = isolated_env
+
+        # Add first skill
+        skill1 = tmp_path / "skill-one"
+        skill1.mkdir()
+        (skill1 / "SKILL.md").write_text(
+            "---\nname: skill-one\ndescription: First skill.\n"
+            'metadata:\n  version: "1.0.0"\n---\n\n# Skill One\n'
+        )
+        runner.invoke(app, ["add", str(skill1)], env=env)
+
+        # Add second skill
+        skill2 = tmp_path / "skill-two"
+        skill2.mkdir()
+        (skill2 / "SKILL.md").write_text(
+            "---\nname: skill-two\ndescription: Second skill.\n"
+            'metadata:\n  version: "1.0.0"\n---\n\n# Skill Two\n'
+        )
+        runner.invoke(app, ["add", str(skill2)], env=env)
+
+        # Remove both
+        result = runner.invoke(app, ["remove", "skill-one", "skill-two"], env=env)
+        assert result.exit_code == 0
+
+        # Both placements should be gone
+        assert not (home / ".claude" / "skills" / "skill-one").exists()
+        assert not (home / ".claude" / "skills" / "skill-two").exists()
+
+    def test_remove_from_source_no_matches(self, runner, isolated_env):
+        """--from-source with no matching skills should exit 0 with info."""
+        _, napoln_home, env = isolated_env
+        napoln_home.mkdir(parents=True, exist_ok=True)
+
+        import tomli_w
+
+        (napoln_home / "manifest.toml").write_text(
+            tomli_w.dumps({"napoln": {"schema": 1}, "skills": {}})
+        )
+
+        result = runner.invoke(app, ["remove", "--from-source", "nonexistent/repo"], env=env)
+        assert result.exit_code == 0
+        assert "No skills found" in result.output
+
+    def test_remove_from_source_matches(self, runner, isolated_env, tmp_path):
+        """--from-source should match against manifest's stored source URL."""
+        home, napoln_home, env = isolated_env
+
+        skill = tmp_path / "design-audit"
+        skill.mkdir()
+        (skill / "SKILL.md").write_text(
+            "---\nname: design-audit\ndescription: Audit skill.\n"
+            'metadata:\n  version: "1.0.0"\n---\n\n# Design Audit\n'
+        )
+        runner.invoke(app, ["add", str(skill)], env=env)
+
+        # Manually update manifest source to a GitHub URL
+        import tomllib
+
+        manifest_path = napoln_home / "manifest.toml"
+        data = tomllib.loads(manifest_path.read_text())
+        if "skills" in data and "design-audit" in data["skills"]:
+            data["skills"]["design-audit"]["source"] = "https://github.com/raiderrobert/flow"
+            manifest_path.write_text(tomli_w.dumps(data))
+
+        # Remove using shorthand that should match
+        result = runner.invoke(app, ["remove", "--from-source", "raiderrobert/flow"], env=env)
+        assert result.exit_code == 0
+        assert not (home / ".claude" / "skills" / "design-audit").exists()
+
+    def test_remove_combined_names_and_from_source(self, runner, isolated_env, tmp_path):
+        """--from-source can be combined with explicit names."""
+        home, napoln_home, env = isolated_env
+
+        skill_a = tmp_path / "skill-a"
+        skill_a.mkdir()
+        (skill_a / "SKILL.md").write_text(
+            "---\nname: skill-a\ndescription: Skill A.\n"
+            'metadata:\n  version: "1.0.0"\n---\n\n# Skill A\n'
+        )
+        runner.invoke(app, ["add", str(skill_a)], env=env)
+
+        skill_b = tmp_path / "skill-b"
+        skill_b.mkdir()
+        (skill_b / "SKILL.md").write_text(
+            "---\nname: skill-b\ndescription: Skill B.\n"
+            'metadata:\n  version: "1.0.0"\n---\n\n# Skill B\n'
+        )
+        runner.invoke(app, ["add", str(skill_b)], env=env)
+
+        # Remove skill-a explicitly and skill-b via from-source
+        runner.invoke(app, ["remove", "skill-a", "--from-source", "raiderrobert/other"], env=env)
+        # skill-a should be removed, skill-b stays (no match)
+        assert not (home / ".claude" / "skills" / "skill-a").exists()
+        assert (home / ".claude" / "skills" / "skill-b").exists()
 
 
 class TestListCommand:

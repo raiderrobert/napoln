@@ -543,3 +543,45 @@ def discover_skill_choices(repo_dir: Path) -> list[tuple[str, str, Path]]:
         desc = _extract_description(skill_dir)
         results.append((name, desc, skill_dir))
     return results
+
+
+def normalize_source_for_match(source: str) -> str:
+    """Normalize a source identifier for matching against manifest entries.
+
+    - Strips https://github.com/ prefix and .git suffix from full URLs
+    - Converts GitHub shorthand (owner/repo) to normalized form
+    - Returns local paths unchanged
+
+    Args:
+        source: Source identifier (URL, shorthand, or local path).
+
+    Returns:
+        Normalized source identifier for matching.
+    """
+    # Strip .git suffix
+    if source.endswith(".git"):
+        source = source[:-4]
+
+    # Strip URL scheme
+    if source.startswith("https://"):
+        source = source[8:]
+    elif source.startswith("http://"):
+        source = source[7:]
+    elif source.startswith("git@"):
+        # git@github.com:owner/repo -> github.com/owner/repo
+        source = source[4:].replace(":", "/")
+
+    # Check if already normalized (has host with domain, e.g. github.com/owner/repo)
+    # vs shorthand (owner/repo) which needs normalization
+    if "/" in source:
+        first_segment = source.split("/")[0]
+        # If first segment has a dot, it's likely a host (already normalized)
+        if "." in first_segment:
+            return source
+
+    # GitHub shorthand: owner/repo -> github.com/owner/repo
+    parsed = parse_source(source)
+    if parsed.source_type == "git" and parsed.host:
+        return f"{parsed.host}/{parsed.owner}/{parsed.repo}"
+
+    return source
