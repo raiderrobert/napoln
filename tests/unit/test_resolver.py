@@ -94,13 +94,19 @@ class TestNormalizeSourceForMatch:
         """Full URLs are normalized by stripping scheme."""
         from napoln.core.resolver import normalize_source_for_match
 
-        assert normalize_source_for_match("https://github.com/raiderrobert/flow") == "github.com/raiderrobert/flow"
+        assert (
+            normalize_source_for_match("https://github.com/raiderrobert/flow")
+            == "github.com/raiderrobert/flow"
+        )
 
     def test_github_url_with_git_suffix(self):
         """URLs with .git suffix are normalized."""
         from napoln.core.resolver import normalize_source_for_match
 
-        assert normalize_source_for_match("https://github.com/raiderrobert/flow.git") == "github.com/raiderrobert/flow"
+        assert (
+            normalize_source_for_match("https://github.com/raiderrobert/flow.git")
+            == "github.com/raiderrobert/flow"
+        )
 
     def test_git_shorthand(self):
         """GitHub shorthand is normalized to full host/path form."""
@@ -112,7 +118,10 @@ class TestNormalizeSourceForMatch:
         """Already normalized sources pass through unchanged."""
         from napoln.core.resolver import normalize_source_for_match
 
-        assert normalize_source_for_match("github.com/raiderrobert/flow") == "github.com/raiderrobert/flow"
+        assert (
+            normalize_source_for_match("github.com/raiderrobert/flow")
+            == "github.com/raiderrobert/flow"
+        )
 
     def test_local_path_unchanged(self):
         """Local paths are not normalized."""
@@ -130,7 +139,9 @@ class TestNormalizeSourceForMatch:
         """Git SSH URLs (git@host:owner/repo) are normalized."""
         from napoln.core.resolver import normalize_source_for_match
 
-        assert normalize_source_for_match("git@github.com:owner/repo.git") == "github.com/owner/repo"
+        assert (
+            normalize_source_for_match("git@github.com:owner/repo.git") == "github.com/owner/repo"
+        )
 
 
 class TestResolveLocal:
