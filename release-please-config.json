@@ -4,6 +4,7 @@
       "release-type": "python",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
+      "last-release-sha": "eb3156a6076c520f1a943b0c9ad746b84ac9247e",
       "extra-files": [
         "pyproject.toml"
       ]
