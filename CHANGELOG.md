@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.7](https://github.com/raiderrobert/napoln/compare/v0.2.6...v0.2.7) (2026-04-17)
+
+
+### Features
+
+* **remove:** accept multiple names and --from-source ([#31](https://github.com/raiderrobert/napoln/issues/31)) ([e075639](https://github.com/raiderrobert/napoln/commit/e075639b4e04cb14a6674ab503ae70d190fc13ef))
+
 ## [0.2.6](https://github.com/raiderrobert/napoln/compare/v0.2.5...v0.2.6) (2026-04-16)
 
 
