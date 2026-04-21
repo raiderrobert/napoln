@@ -2,66 +2,16 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from napoln import output
 from napoln.core import linker, manifest, store
-
-if TYPE_CHECKING:
-    from napoln.core.resolver import ResolvedSource
 
 
 def _get_napoln_home() -> Path:
     import os
 
     return Path(os.environ.get("NAPOLN_HOME", Path.home() / ".napoln"))
-
-
-def _refetch_skill(
-    skill_name: str,
-    entry: manifest.SkillEntry,
-    napoln_home: Path,
-) -> Path | None:
-    """Re-fetch a skill from its recorded source when the store entry is missing."""
-    from napoln.core.resolver import parse_source, resolve_git, resolve_local
-    from napoln.errors import NapolnError
-
-    try:
-        if entry.source == "bundled":
-            skill_dir = Path(__file__).parent.parent / "skills" / skill_name
-            if not (skill_dir.exists() and (skill_dir / "SKILL.md").exists()):
-                return None
-            store_path, _ = store.store_skill(
-                skill_dir, skill_name, entry.version, napoln_home
-            )
-            return store_path
-
-        parsed = parse_source(entry.source)
-
-        if parsed.source_type == "local":
-            resolved: ResolvedSource | list[ResolvedSource] = resolve_local(parsed)
-        elif parsed.source_type == "git":
-            if entry.version:
-                parsed.version = entry.version
-            cache_dir = napoln_home / "cache"
-            resolved = resolve_git(parsed, cache_dir)
-        else:
-            return None
-
-        if isinstance(resolved, list):
-            matches = [r for r in resolved if r.skill_name == skill_name]
-            if not matches:
-                return None
-            resolved = matches[0]
-
-        store_path, _ = store.store_skill(
-            resolved.skill_dir, skill_name, resolved.version, napoln_home
-        )
-        return store_path
-    except (NapolnError, OSError, subprocess.CalledProcessError):
-        return None
 
 
 def _sync_manifest(
@@ -84,15 +34,21 @@ def _sync_manifest(
         )
 
         if store_path is None:
-            store_path = _refetch_skill(skill_name, entry, napoln_home)
-            if store_path is None:
+            from napoln.commands.add import resolve_and_store
+            from napoln.errors import NapolnError
+
+            try:
+                store_path, _ = resolve_and_store(
+                    entry.source, skill_name, napoln_home, version_constraint=entry.version
+                )
+                output.info(f"Re-fetched '{skill_name}' from source")
+            except (NapolnError, OSError):
                 output.warning(
                     f"Cannot restore '{skill_name}' — source unavailable. "
                     f"Run `napoln add` to re-fetch."
                 )
                 errors += 1
                 continue
-            output.info(f"Re-fetched '{skill_name}' from source")
 
         for agent_id, placement in entry.agents.items():
             placement_path = Path(placement.path).expanduser()
