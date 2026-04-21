@@ -50,7 +50,7 @@ def _ensure_initialized(napoln_home: Path) -> None:
         config_path.write_text(tomli_w.dumps(config))
 
 
-def _write_provenance(
+def write_provenance(
     target_dir: Path,
     source: str,
     version: str,
@@ -108,7 +108,7 @@ def _install_bootstrap_skill(
 
     for target_path, path_agents in placements_map.items():
         link_mode = linker.place_skill(store_path, target_path)
-        _write_provenance(target_path, "bundled", "0.1.0", content_hash, link_mode)
+        write_provenance(target_path, "bundled", "0.1.0", content_hash, link_mode)
         for agent in path_agents:
             agent_placements[agent.id] = manifest.AgentPlacement(
                 path=str(target_path),
@@ -228,7 +228,7 @@ def _install_single_skill(
     for target_path, path_agents in placements_map.items():
         try:
             link_mode = linker.place_skill(store_path, target_path)
-            _write_provenance(target_path, resolved.source_id, version, content_hash, link_mode)
+            write_provenance(target_path, resolved.source_id, version, content_hash, link_mode)
             output.success(f"Placed '{skill_name}' in {target_path} ({link_mode})")
             for agent in path_agents:
                 agent_placements[agent.id] = manifest.AgentPlacement(

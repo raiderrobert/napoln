@@ -63,9 +63,9 @@ def _sync_manifest(
                 try:
                     link_mode = linker.place_skill(store_path, placement_path)
 
-                    from napoln.commands.add import _write_provenance
+                    from napoln.commands.add import write_provenance
 
-                    _write_provenance(
+                    write_provenance(
                         placement_path,
                         entry.source,
                         entry.version,
