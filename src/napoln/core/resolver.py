@@ -607,6 +607,7 @@ def resolve_and_store(
 
     parsed = parse_source(source)
 
+    resolved: ResolvedSource
     if parsed.source_type == "local":
         resolved = resolve_local(parsed)
     elif parsed.source_type == "git":
@@ -614,14 +615,15 @@ def resolve_and_store(
             parsed.version = version_constraint
         cache_dir = napoln_home / "cache"
         cache_dir.mkdir(parents=True, exist_ok=True)
-        resolved = resolve_git(parsed, cache_dir)
+        git_result = resolve_git(parsed, cache_dir)
+        if isinstance(git_result, list):
+            matches = [r for r in git_result if r.skill_name == skill_name]
+            if not matches:
+                raise ResolverError(f"Skill '{skill_name}' not found in multi-skill repo")
+            resolved = matches[0]
+        else:
+            resolved = git_result
     else:
         raise ResolverError(f"Unsupported source type: {parsed.source_type}")
-
-    if isinstance(resolved, list):
-        matches = [r for r in resolved if r.skill_name == skill_name]
-        if not matches:
-            raise ResolverError(f"Skill '{skill_name}' not found in multi-skill repo")
-        resolved = matches[0]
 
     return store_skill(resolved.skill_dir, skill_name, resolved.version, napoln_home)
