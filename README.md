@@ -126,6 +126,14 @@ All mutating commands support `--dry-run`. Use `-p` for project scope on any com
 
 Gemini CLI, pi, and Codex share `~/.agents/skills/` — one placement serves all three.
 
+### One SKILL.md for every agent
+
+A skill is a single `SKILL.md` file. Every supported agent reads the same file;
+napoln does not fork or transform it per agent. Agent-specific frontmatter
+fields are optional, and each agent ignores the fields it does not understand.
+Skill authors should keep one canonical `SKILL.md` per skill rather than
+maintaining per-agent variants.
+
 ## Team Workflow
 
 Install with `--project` and commit the manifest:
