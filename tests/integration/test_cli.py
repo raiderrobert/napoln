@@ -379,7 +379,6 @@ class TestInstallCommand:
         result = runner.invoke(app, ["install", "--project"], env=env)
 
         assert result.exit_code == 0
-        assert "Re-fetched" in result.output
         assert "Restored" in result.output
         assert skill_placement.exists()
         assert (skill_placement / "SKILL.md").exists()

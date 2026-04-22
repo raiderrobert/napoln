@@ -113,6 +113,29 @@ def list_stored_versions(skill_name: str, napoln_home: Path) -> list[tuple[str, 
     return versions
 
 
+def ensure_stored(
+    skill_name: str,
+    version: str,
+    store_hash: str,
+    source: str,
+    napoln_home: Path,
+) -> Path:
+    """Return the store path for a skill, re-fetching from source if missing.
+
+    Raises ResolverError or StoreError if the skill can't be found or fetched.
+    """
+    from napoln.core.resolver import resolve_and_store
+
+    store_path = get_stored_skill(skill_name, version, store_hash, napoln_home)
+    if store_path is not None:
+        return store_path
+
+    store_path, _ = resolve_and_store(
+        source, skill_name, napoln_home, version_constraint=version
+    )
+    return store_path
+
+
 def verify_store_entry(store_path: Path) -> bool:
     """Verify a store entry's integrity by re-hashing.
 

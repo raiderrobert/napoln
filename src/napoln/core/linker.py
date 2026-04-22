@@ -93,3 +93,46 @@ def _use_copy_only(store_path: Path, target_dir: Path, already_copied: Path) -> 
             dst_file = target_dir / rel
             dst_file.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(str(src_file), str(dst_file))
+
+
+def write_provenance(
+    target_dir: Path,
+    source: str,
+    version: str,
+    store_hash: str,
+    link_mode: str,
+) -> None:
+    """Write the .napoln provenance file to a placement."""
+    from datetime import datetime, timezone
+
+    from napoln import __version__
+
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    provenance = (
+        f'source = "{source}"\n'
+        f'version = "{version}"\n'
+        f'store_hash = "{store_hash}"\n'
+        f'link_mode = "{link_mode}"\n'
+        f'installed = "{now}"\n'
+        f'napoln_version = "{__version__}"\n'
+    )
+    (target_dir / ".napoln").write_text(provenance)
+
+
+def restore_placement(
+    store_path: Path,
+    placement_path: Path,
+    source: str,
+    version: str,
+    store_hash: str,
+) -> str | None:
+    """Place a skill from the store if the placement doesn't already exist.
+
+    Returns the link mode ("clone" or "copy") if placed, or None if already present.
+    """
+    if placement_path.exists():
+        return None
+
+    link_mode = place_skill(store_path, placement_path)
+    write_provenance(placement_path, source, version, store_hash, link_mode)
+    return link_mode

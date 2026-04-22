@@ -6,6 +6,7 @@ from pathlib import Path
 
 from napoln import output
 from napoln.core import linker, manifest, store
+from napoln.errors import NapolnError
 
 
 def _get_napoln_home() -> Path:
@@ -29,52 +30,33 @@ def _sync_manifest(
     napoln_home = _get_napoln_home()
 
     for skill_name, entry in sorted(mf.skills.items()):
-        store_path = store.get_stored_skill(
-            skill_name, entry.version, entry.store_hash, napoln_home
-        )
+        try:
+            store_path = store.ensure_stored(
+                skill_name, entry.version, entry.store_hash, entry.source, napoln_home
+            )
+        except (NapolnError, OSError):
+            output.warning(
+                f"Cannot restore '{skill_name}' — source unavailable. "
+                f"Run `napoln add` to re-fetch."
+            )
+            errors += 1
+            continue
 
-        if store_path is None:
-            from napoln.core.resolver import resolve_and_store
-            from napoln.errors import NapolnError
-
-            try:
-                store_path, _ = resolve_and_store(
-                    entry.source, skill_name, napoln_home, version_constraint=entry.version
-                )
-                output.info(f"Re-fetched '{skill_name}' from source")
-            except (NapolnError, OSError):
-                output.warning(
-                    f"Cannot restore '{skill_name}' — source unavailable. "
-                    f"Run `napoln add` to re-fetch."
-                )
-                errors += 1
-                continue
-
-        for agent_id, placement in entry.agents.items():
+        for _agent_id, placement in entry.agents.items():
             placement_path = Path(placement.path).expanduser()
 
-            if placement_path.exists():
-                continue
-
             if dry_run:
-                output.would(f"place '{skill_name}' at {placement_path}")
-                synced += 1
+                if not placement_path.exists():
+                    output.would(f"place '{skill_name}' at {placement_path}")
+                    synced += 1
             else:
                 try:
-                    link_mode = linker.place_skill(store_path, placement_path)
-
-                    from napoln.commands.add import write_provenance
-
-                    write_provenance(
-                        placement_path,
-                        entry.source,
-                        entry.version,
-                        entry.store_hash,
-                        link_mode,
+                    result = linker.restore_placement(
+                        store_path, placement_path, entry.source, entry.version, entry.store_hash
                     )
-
-                    output.success(f"Restored '{skill_name}' to {placement_path}")
-                    synced += 1
+                    if result is not None:
+                        output.success(f"Restored '{skill_name}' to {placement_path}")
+                        synced += 1
                 except Exception as e:
                     output.error(f"Failed to restore '{skill_name}' to {placement_path}: {e}")
                     errors += 1
