@@ -165,7 +165,9 @@ def _install_single_skill(
     for target_path, path_agents in placements_map.items():
         try:
             link_mode = linker.place_skill(store_path, target_path)
-            linker.write_provenance(target_path, resolved.source_id, version, content_hash, link_mode)
+            linker.write_provenance(
+                target_path, resolved.source_id, version, content_hash, link_mode
+            )
             output.success(f"Placed '{skill_name}' in {target_path} ({link_mode})")
             for agent in path_agents:
                 agent_placements[agent.id] = manifest.AgentPlacement(

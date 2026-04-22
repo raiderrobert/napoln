@@ -36,8 +36,7 @@ def _sync_manifest(
             )
         except (NapolnError, OSError):
             output.warning(
-                f"Cannot restore '{skill_name}' — source unavailable. "
-                f"Run `napoln add` to re-fetch."
+                f"Cannot restore '{skill_name}' — source unavailable. Run `napoln add` to re-fetch."
             )
             errors += 1
             continue

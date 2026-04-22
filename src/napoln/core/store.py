@@ -130,9 +130,7 @@ def ensure_stored(
     if store_path is not None:
         return store_path
 
-    store_path, _ = resolve_and_store(
-        source, skill_name, napoln_home, version_constraint=version
-    )
+    store_path, _ = resolve_and_store(source, skill_name, napoln_home, version_constraint=version)
     return store_path
 
 
