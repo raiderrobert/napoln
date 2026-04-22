@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 import tomli_w
@@ -333,6 +334,54 @@ class TestInstallCommand:
         runner.invoke(app, ["add", str(local_skill)], env=env)
         result = runner.invoke(app, ["install", "--global", "--dry-run"], env=env)
         assert result.exit_code == 0
+
+    def test_install_project_from_manifest_only(self, runner, isolated_env, local_skill):
+        """Simulate cloning a repo that has a .napoln/manifest.toml but no store.
+
+        This is the lockfile use case: someone else ran `napoln add`, committed the
+        manifest, and a new contributor clones the repo and runs `napoln install --project`.
+        The store is empty, placements don't exist, but install should re-fetch from source.
+        """
+        home, napoln_home, env = isolated_env
+
+        from napoln.core.hasher import hash_skill
+
+        content_hash = hash_skill(local_skill)
+        manifest_dir = Path.cwd() / ".napoln"
+        manifest_dir.mkdir(parents=True, exist_ok=True)
+
+        skill_placement = home / ".claude" / "skills" / "test-skill"
+        manifest_data = {
+            "napoln": {"schema": 1},
+            "skills": {
+                "test-skill": {
+                    "source": str(local_skill),
+                    "version": "1.0.0",
+                    "store_hash": content_hash,
+                    "installed": "2026-01-01T00:00:00Z",
+                    "updated": "2026-01-01T00:00:00Z",
+                    "agents": {
+                        "claude-code": {
+                            "path": str(skill_placement),
+                            "link_mode": "copy",
+                            "scope": "project",
+                        }
+                    },
+                }
+            },
+        }
+        (manifest_dir / "manifest.toml").write_text(tomli_w.dumps(manifest_data))
+
+        # No store, no placements — fresh clone state
+        assert not (napoln_home / "store" / "test-skill").exists()
+        assert not skill_placement.exists()
+
+        result = runner.invoke(app, ["install", "--project"], env=env)
+
+        assert result.exit_code == 0
+        assert "Restored" in result.output
+        assert skill_placement.exists()
+        assert (skill_placement / "SKILL.md").exists()
 
 
 class TestInitCommand:

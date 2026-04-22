@@ -6,6 +6,7 @@ from pathlib import Path
 
 from napoln import output
 from napoln.core import linker, manifest, store
+from napoln.errors import NapolnError
 
 
 def _get_napoln_home() -> Path:
@@ -29,43 +30,32 @@ def _sync_manifest(
     napoln_home = _get_napoln_home()
 
     for skill_name, entry in sorted(mf.skills.items()):
-        store_path = store.get_stored_skill(
-            skill_name, entry.version, entry.store_hash, napoln_home
-        )
-
-        if store_path is None:
+        try:
+            store_path = store.ensure_stored(
+                skill_name, entry.version, entry.store_hash, entry.source, napoln_home
+            )
+        except (NapolnError, OSError):
             output.warning(
-                f"Cannot restore '{skill_name}' — store entry missing. "
-                f"Run `napoln add` to re-fetch."
+                f"Cannot restore '{skill_name}' — source unavailable. Run `napoln add` to re-fetch."
             )
             errors += 1
             continue
 
-        for agent_id, placement in entry.agents.items():
+        for _agent_id, placement in entry.agents.items():
             placement_path = Path(placement.path).expanduser()
 
-            if placement_path.exists():
-                continue
-
             if dry_run:
-                output.would(f"place '{skill_name}' at {placement_path}")
-                synced += 1
+                if not placement_path.exists():
+                    output.would(f"place '{skill_name}' at {placement_path}")
+                    synced += 1
             else:
                 try:
-                    link_mode = linker.place_skill(store_path, placement_path)
-
-                    from napoln.commands.add import _write_provenance
-
-                    _write_provenance(
-                        placement_path,
-                        entry.source,
-                        entry.version,
-                        entry.store_hash,
-                        link_mode,
+                    result = linker.restore_placement(
+                        store_path, placement_path, entry.source, entry.version, entry.store_hash
                     )
-
-                    output.success(f"Restored '{skill_name}' to {placement_path}")
-                    synced += 1
+                    if result is not None:
+                        output.success(f"Restored '{skill_name}' to {placement_path}")
+                        synced += 1
                 except Exception as e:
                     output.error(f"Failed to restore '{skill_name}' to {placement_path}: {e}")
                     errors += 1

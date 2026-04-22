@@ -11,6 +11,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from napoln.core.store import store_skill
 from napoln.errors import MultipleSkillsError, ResolverError
 
 
@@ -585,3 +586,44 @@ def normalize_source_for_match(source: str) -> str:
         return f"{parsed.host}/{parsed.owner}/{parsed.repo}"
 
     return source
+
+
+def resolve_and_store(
+    source: str,
+    skill_name: str,
+    napoln_home: Path,
+    version_constraint: str | None = None,
+) -> tuple[Path, str]:
+    """Resolve a source and store the skill. Returns (store_path, content_hash).
+
+    Handles local paths, git sources, and the special "bundled" source.
+    Raises ResolverError or StoreError on failure.
+    """
+    if source == "bundled":
+        skill_dir = Path(__file__).parent.parent / "skills" / skill_name
+        if not (skill_dir.exists() and (skill_dir / "SKILL.md").exists()):
+            raise ResolverError(f"Bundled skill '{skill_name}' not found")
+        return store_skill(skill_dir, skill_name, version_constraint or "0.1.0", napoln_home)
+
+    parsed = parse_source(source)
+
+    resolved: ResolvedSource
+    if parsed.source_type == "local":
+        resolved = resolve_local(parsed)
+    elif parsed.source_type == "git":
+        if version_constraint:
+            parsed.version = version_constraint
+        cache_dir = napoln_home / "cache"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        git_result = resolve_git(parsed, cache_dir)
+        if isinstance(git_result, ResolvedSource):
+            resolved = git_result
+        else:
+            matched = next((r for r in git_result if r.skill_name == skill_name), None)
+            if matched is None:
+                raise ResolverError(f"Skill '{skill_name}' not found in multi-skill repo")
+            resolved = matched
+    else:
+        raise ResolverError(f"Unsupported source type: {parsed.source_type}")
+
+    return store_skill(resolved.skill_dir, skill_name, resolved.version, napoln_home)

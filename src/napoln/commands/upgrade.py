@@ -190,9 +190,7 @@ def _upgrade_skill(
 
         # Only update provenance for clean placements
         if not placement_conflicted:
-            from napoln.commands.add import _write_provenance
-
-            _write_provenance(
+            linker.write_provenance(
                 placement_path,
                 entry.source,
                 new_version,
