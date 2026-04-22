@@ -615,9 +615,9 @@ def resolve_and_store(
             parsed.version = version_constraint
         cache_dir = napoln_home / "cache"
         cache_dir.mkdir(parents=True, exist_ok=True)
-        git_result = resolve_git(parsed, cache_dir)
+        git_result: ResolvedSource | list[ResolvedSource] = resolve_git(parsed, cache_dir)
         if isinstance(git_result, list):
-            matches = [r for r in git_result if r.skill_name == skill_name]
+            matches: list[ResolvedSource] = [r for r in git_result if r.skill_name == skill_name]
             if not matches:
                 raise ResolverError(f"Skill '{skill_name}' not found in multi-skill repo")
             resolved = matches[0]
