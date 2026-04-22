@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.8](https://github.com/raiderrobert/napoln/compare/v0.2.7...v0.2.8) (2026-04-22)
+
+
+### Bug Fixes
+
+* **install:** re-fetch skills when store is empty ([#39](https://github.com/raiderrobert/napoln/issues/39)) ([4e0a959](https://github.com/raiderrobert/napoln/commit/4e0a959f1dd5dc203ad05696fdefcd95feb633f4))
+
 ## [0.2.7](https://github.com/raiderrobert/napoln/compare/v0.2.6...v0.2.7) (2026-04-17)
 
 
