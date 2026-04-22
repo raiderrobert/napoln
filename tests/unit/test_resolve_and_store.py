@@ -8,7 +8,7 @@ import pytest
 @pytest.fixture
 def _stored_skill(skill_builder, napoln_home):
     """Use resolve_and_store to store a local skill and return the result."""
-    from napoln.commands.add import resolve_and_store
+    from napoln.core.resolver import resolve_and_store
 
     skill_dir = skill_builder(name="my-skill", version="1.0.0")
     return resolve_and_store(
@@ -33,7 +33,7 @@ def test_resolve_and_store_returns_content_hash(_stored_skill):
 
 
 def test_resolve_and_store_bundled_source(napoln_home):
-    from napoln.commands.add import resolve_and_store
+    from napoln.core.resolver import resolve_and_store
 
     store_path, content_hash = resolve_and_store(
         source="bundled",
@@ -45,7 +45,7 @@ def test_resolve_and_store_bundled_source(napoln_home):
 
 
 def test_resolve_and_store_bad_source(napoln_home):
-    from napoln.commands.add import resolve_and_store
+    from napoln.core.resolver import resolve_and_store
 
     with pytest.raises(Exception):
         resolve_and_store(

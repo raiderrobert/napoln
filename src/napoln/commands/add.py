@@ -122,46 +122,6 @@ def _install_bootstrap_skill(
     manifest.write_manifest(mf, manifest_path)
 
 
-def resolve_and_store(
-    source: str,
-    skill_name: str,
-    napoln_home: Path,
-    version_constraint: str | None = None,
-) -> tuple[Path, str]:
-    """Resolve a source and store the skill. Returns (store_path, content_hash).
-
-    Handles local paths, git sources, and the special "bundled" source.
-    Raises ResolverError or StoreError on failure.
-    """
-    if source == "bundled":
-        skill_dir = Path(__file__).parent.parent / "skills" / skill_name
-        if not (skill_dir.exists() and (skill_dir / "SKILL.md").exists()):
-            raise ResolverError(f"Bundled skill '{skill_name}' not found")
-        return store.store_skill(skill_dir, skill_name, version_constraint or "0.1.0", napoln_home)
-
-    parsed = parse_source(source)
-
-    if parsed.source_type == "local":
-        resolved = resolve_local(parsed)
-    elif parsed.source_type == "git":
-        if version_constraint:
-            parsed.version = version_constraint
-        cache_dir = napoln_home / "cache"
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        resolved = resolve_git(parsed, cache_dir)
-    else:
-        raise ResolverError(f"Unsupported source type: {parsed.source_type}")
-
-    # Multi-skill repos: find the matching skill
-    if isinstance(resolved, list):
-        matches = [r for r in resolved if r.skill_name == skill_name]
-        if not matches:
-            raise ResolverError(f"Skill '{skill_name}' not found in multi-skill repo")
-        resolved = matches[0]
-
-    return store.store_skill(resolved.skill_dir, skill_name, resolved.version, napoln_home)
-
-
 def _install_single_skill(
     resolved: ResolvedSource,
     skill_name: str,

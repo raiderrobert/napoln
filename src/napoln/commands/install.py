@@ -34,7 +34,7 @@ def _sync_manifest(
         )
 
         if store_path is None:
-            from napoln.commands.add import resolve_and_store
+            from napoln.core.resolver import resolve_and_store
             from napoln.errors import NapolnError
 
             try:
