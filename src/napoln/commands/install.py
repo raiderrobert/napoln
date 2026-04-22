@@ -6,13 +6,8 @@ from pathlib import Path
 
 from napoln import output
 from napoln.core import linker, manifest, store
+from napoln.core.home import get_napoln_home
 from napoln.errors import NapolnError
-
-
-def _get_napoln_home() -> Path:
-    import os
-
-    return Path(os.environ.get("NAPOLN_HOME", Path.home() / ".napoln"))
 
 
 def _sync_manifest(
@@ -27,7 +22,7 @@ def _sync_manifest(
     """
     synced = 0
     errors = 0
-    napoln_home = _get_napoln_home()
+    napoln_home = get_napoln_home()
 
     for skill_name, entry in sorted(mf.skills.items()):
         try:
@@ -75,7 +70,7 @@ def run_install(
     Returns:
         Exit code (0=success, 1=errors).
     """
-    napoln_home = _get_napoln_home()
+    napoln_home = get_napoln_home()
 
     if dry_run:
         output.dry_run_header()

@@ -7,13 +7,8 @@ from pathlib import Path
 
 from napoln import output
 from napoln.core import manifest
+from napoln.core.home import get_napoln_home
 from napoln.core.resolver import normalize_source_for_match
-
-
-def _get_napoln_home() -> Path:
-    import os
-
-    return Path(os.environ.get("NAPOLN_HOME", Path.home() / ".napoln"))
 
 
 def _resolve_from_source(
@@ -61,7 +56,7 @@ def run_remove(
     Returns:
         Exit code (0=success, 1=error).
     """
-    napoln_home = _get_napoln_home()
+    napoln_home = get_napoln_home()
     manifest_path = manifest.get_manifest_path(napoln_home, scope, project_root)
     mf = manifest.read_manifest(manifest_path)
 

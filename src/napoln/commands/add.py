@@ -8,6 +8,7 @@ from typing import cast
 from napoln import output
 from napoln.core import agents as agents_mod
 from napoln.core import linker, manifest, store, validator
+from napoln.core.home import get_napoln_home
 from napoln.core.resolver import (
     ParsedSource,
     ResolvedSource,
@@ -19,12 +20,6 @@ from napoln.core.resolver import (
 )
 from napoln.errors import MultipleSkillsError, ResolverError
 from napoln.prompts import SkillChoice, pick_skills
-
-
-def _get_napoln_home() -> Path:
-    import os
-
-    return Path(os.environ.get("NAPOLN_HOME", Path.home() / ".napoln"))
 
 
 def _ensure_initialized(napoln_home: Path) -> None:
@@ -279,7 +274,7 @@ def run_add(
     """
     import os
 
-    napoln_home = _get_napoln_home()
+    napoln_home = get_napoln_home()
     home = Path(os.environ.get("HOME", Path.home()))
 
     _ensure_initialized(napoln_home)

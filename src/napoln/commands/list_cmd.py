@@ -6,12 +6,7 @@ from pathlib import Path
 
 from napoln import output
 from napoln.core import manifest
-
-
-def _get_napoln_home() -> Path:
-    import os
-
-    return Path(os.environ.get("NAPOLN_HOME", Path.home() / ".napoln"))
+from napoln.core.home import get_napoln_home
 
 
 def _abbreviate_path(path: str, home: str) -> str:
@@ -204,7 +199,7 @@ def run_list(
     Returns:
         Exit code (0=always).
     """
-    napoln_home = _get_napoln_home()
+    napoln_home = get_napoln_home()
 
     global_mf: manifest.Manifest | None = None
     project_mf: manifest.Manifest | None = None

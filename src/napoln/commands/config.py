@@ -11,12 +11,7 @@ import tomli_w
 from napoln import output
 from napoln.core import agents as agents_mod
 from napoln.core import manifest, store
-
-
-def _get_napoln_home() -> Path:
-    import os
-
-    return Path(os.environ.get("NAPOLN_HOME", Path.home() / ".napoln"))
+from napoln.core.home import get_napoln_home
 
 
 # ─── config (bare) ───────────────────────────────────────────────────────────
@@ -26,7 +21,7 @@ def run_config_show() -> int:
     """Show current configuration: home, store, agents, manifests."""
     import os
 
-    napoln_home = _get_napoln_home()
+    napoln_home = get_napoln_home()
     home = Path(os.environ.get("HOME", Path.home()))
 
     output.header("napoln config")
@@ -77,7 +72,7 @@ def run_config_set(key: str, value: str) -> int:
 
     Keys use dot notation: e.g., "napoln.default_scope"
     """
-    napoln_home = _get_napoln_home()
+    napoln_home = get_napoln_home()
     config_path = napoln_home / "config.toml"
 
     if config_path.exists():
@@ -128,7 +123,7 @@ def run_config_doctor(
     json_output: bool = False,
 ) -> int:
     """Health check: store integrity, placements, provenance, git."""
-    napoln_home = _get_napoln_home()
+    napoln_home = get_napoln_home()
     manifest_path = manifest.get_manifest_path(napoln_home, scope, project_root)
 
     issues: list[dict] = []
@@ -253,7 +248,7 @@ def run_config_doctor(
 
 def run_config_gc(dry_run: bool = False) -> int:
     """Remove unreferenced store entries."""
-    napoln_home = _get_napoln_home()
+    napoln_home = get_napoln_home()
 
     # Collect all referenced store entries from both manifests
     referenced: set[str] = set()
