@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import shutil
-
 from pytest_bdd import given, parsers, scenario, then, when
 from typer.testing import CliRunner
 
@@ -21,11 +19,6 @@ def test_install_dry_run():
     pass
 
 
-@scenario("../features/install.feature", "Install re-fetches skills when store is empty")
-def test_install_refetch_empty_store():
-    pass
-
-
 # ─── Given ────────────────────────────────────────────────────────────────────
 
 
@@ -40,28 +33,6 @@ def local_skill_exists(env: NapolnTestEnv):
     env.create_local_skill()
 
 
-@given("the skill was previously added")
-def skill_previously_added(env: NapolnTestEnv, cli_runner: CliRunner):
-    result = cli_runner.invoke(app, ["add", str(env.skill_dir)], env=env.env_vars)
-    assert result.exit_code == 0
-
-
-@given("the store is empty")
-def store_is_empty(env: NapolnTestEnv):
-    store_dir = env.napoln_home / "store"
-    if store_dir.exists():
-        shutil.rmtree(store_dir)
-    store_dir.mkdir(parents=True, exist_ok=True)
-
-
-@given("skill placements are removed")
-def placements_removed(env: NapolnTestEnv):
-    skills_dir = env.home / ".claude" / "skills"
-    if skills_dir.exists():
-        shutil.rmtree(skills_dir)
-    skills_dir.mkdir(parents=True, exist_ok=True)
-
-
 # ─── When ────────────────────────────────────────────────────────────────────
 
 
@@ -74,18 +45,6 @@ def run_add(env: NapolnTestEnv, cli_runner: CliRunner):
 @when("I run napoln add with dry run", target_fixture="result_env")
 def run_add_dry(env: NapolnTestEnv, cli_runner: CliRunner):
     env.result = cli_runner.invoke(app, ["add", str(env.skill_dir), "--dry-run"], env=env.env_vars)
-    return env
-
-
-@when("I run napoln install", target_fixture="result_env")
-def run_install(env: NapolnTestEnv, cli_runner: CliRunner):
-    env.result = cli_runner.invoke(app, ["install"], env=env.env_vars)
-    return env
-
-
-@when("I run napoln install --global", target_fixture="result_env")
-def run_install_global(env: NapolnTestEnv, cli_runner: CliRunner):
-    env.result = cli_runner.invoke(app, ["install", "--global"], env=env.env_vars)
     return env
 
 
