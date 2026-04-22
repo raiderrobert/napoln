@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.9](https://github.com/raiderrobert/napoln/compare/v0.2.8...v0.2.9) (2026-04-22)
+
+
+### Documentation
+
+* clarify one SKILL.md serves every agent ([#41](https://github.com/raiderrobert/napoln/issues/41)) ([9e130aa](https://github.com/raiderrobert/napoln/commit/9e130aa41cea29b802b5916949868b8f4f81de00)), closes [#10](https://github.com/raiderrobert/napoln/issues/10)
+
 ## [0.2.8](https://github.com/raiderrobert/napoln/compare/v0.2.7...v0.2.8) (2026-04-22)
 
 

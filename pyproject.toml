@@ -1,6 +1,6 @@
 [project]
 name = "napoln"
-version = "0.2.8"
+version = "0.2.9"
 description = "A package manager for agent skills"
 readme = "README.md"
 license = "MIT"
