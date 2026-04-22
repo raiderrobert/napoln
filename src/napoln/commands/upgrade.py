@@ -7,14 +7,9 @@ from typing import cast
 
 from napoln import output
 from napoln.core import linker, manifest, merger, store
+from napoln.core.home import get_napoln_home
 from napoln.core.resolver import ResolvedSource, parse_source, resolve_git, resolve_local
 from napoln.errors import ResolverError
-
-
-def _get_napoln_home() -> Path:
-    import os
-
-    return Path(os.environ.get("NAPOLN_HOME", Path.home() / ".napoln"))
 
 
 def run_upgrade(
@@ -33,7 +28,7 @@ def run_upgrade(
     """
     import os
 
-    napoln_home = _get_napoln_home()
+    napoln_home = get_napoln_home()
     home = Path(os.environ.get("HOME", Path.home()))
     manifest_path = manifest.get_manifest_path(napoln_home, scope, project_root)
     mf = manifest.read_manifest(manifest_path)

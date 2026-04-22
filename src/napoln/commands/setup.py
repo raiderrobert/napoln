@@ -10,11 +10,8 @@ import tomli_w
 
 from napoln import output
 from napoln.core import agents as agents_mod
+from napoln.core.home import get_napoln_home
 from napoln.prompts import pick_agents
-
-
-def _get_napoln_home() -> Path:
-    return Path(os.environ.get("NAPOLN_HOME", Path.home() / ".napoln"))
 
 
 def _ensure_initialized(napoln_home: Path) -> None:
@@ -53,7 +50,7 @@ def run_setup(force: bool = False) -> int:
     Returns:
         Exit code (0 on success, 1 on cancel/error).
     """
-    napoln_home = _get_napoln_home()
+    napoln_home = get_napoln_home()
     home = Path(os.environ.get("HOME", Path.home()))
     config_path = napoln_home / "config.toml"
 
