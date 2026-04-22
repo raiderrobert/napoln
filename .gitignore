@@ -25,3 +25,6 @@ Thumbs.db
 .coverage
 .pytest_cache/
 .napoln/
+
+# Local worktrees
+.worktrees/
