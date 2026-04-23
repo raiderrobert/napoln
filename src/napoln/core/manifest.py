@@ -6,6 +6,7 @@ Located at ~/.napoln/manifest.toml (global) or .napoln/manifest.toml (project).
 
 from __future__ import annotations
 
+import os
 import tomllib
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -136,7 +137,18 @@ def write_manifest(manifest: Manifest, path: Path) -> None:
 
         data["skills"][name] = skill_data
 
-    path.write_text(tomli_w.dumps(data), encoding="utf-8")
+    serialized = tomli_w.dumps(data)
+    tmp_path = path.parent / f".{path.name}.tmp"
+    try:
+        tmp_path.write_text(serialized, encoding="utf-8")
+        os.replace(tmp_path, path)
+    except Exception:
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
+        raise
 
 
 def add_skill_to_manifest(

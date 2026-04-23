@@ -1,5 +1,7 @@
 """Tests for napoln.core.manifest — manifest TOML read/write."""
 
+import pytest
+
 from napoln.core.manifest import (
     AgentPlacement,
     Manifest,
@@ -76,6 +78,52 @@ class TestReadWriteManifest:
         path = tmp_path / "deep" / "nested" / "manifest.toml"
         write_manifest(Manifest(), path)
         assert path.exists()
+
+    def test_atomic_write_preserves_prior_contents_on_failure(self, tmp_path, monkeypatch):
+        """If the write is interrupted mid-stream, the original manifest must survive."""
+        from pathlib import Path as _Path
+
+        path = tmp_path / "manifest.toml"
+
+        # Seed a known-good manifest.
+        original = Manifest()
+        original.skills["alpha"] = SkillEntry(
+            source="local/alpha",
+            version="1.0.0",
+            store_hash="abc1234",
+            installed="2026-04-14T10:00:00Z",
+            updated="2026-04-14T10:00:00Z",
+        )
+        write_manifest(original, path)
+        original_bytes = path.read_bytes()
+
+        # Simulate an interruption: the bytes have started to land on disk,
+        # but the write does not complete. A non-atomic writer clobbers the
+        # target; an atomic writer must leave the target untouched.
+        real_write_text = _Path.write_text
+
+        def failing_write_text(self, data, *args, **kwargs):
+            # Write a truncated prefix, then raise to mimic a killed process.
+            real_write_text(self, data[: len(data) // 2], *args, **kwargs)
+            raise RuntimeError("simulated interruption")
+
+        monkeypatch.setattr(_Path, "write_text", failing_write_text)
+
+        replacement = Manifest()
+        replacement.skills["beta"] = SkillEntry(
+            source="local/beta",
+            version="2.0.0",
+            store_hash="def5678",
+            installed="2026-04-14T11:00:00Z",
+            updated="2026-04-14T11:00:00Z",
+        )
+        with pytest.raises(RuntimeError, match="simulated interruption"):
+            write_manifest(replacement, path)
+
+        # Target must still contain the original contents and no stray temp file.
+        assert path.read_bytes() == original_bytes
+        leftovers = sorted(p.name for p in tmp_path.iterdir() if p.name != "manifest.toml")
+        assert leftovers == [], f"unexpected files: {leftovers}"
 
 
 class TestAddSkillToManifest:
