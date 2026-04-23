@@ -2,6 +2,7 @@
 
 import pytest
 
+from napoln.core import linker
 from napoln.core.linker import clone_file, place_skill
 
 
@@ -52,6 +53,35 @@ class TestPlaceSkill:
 
         place_skill(store_skill, target)
         assert (target / "SKILL.md").read_text() == "# Hello"
+
+    def test_existing_placement_survives_failed_replacement(
+        self, tmp_path, store_skill, monkeypatch
+    ):
+        """If placement fails partway, the existing target directory is preserved."""
+        target = tmp_path / "target" / "my-skill"
+        target.mkdir(parents=True)
+        (target / "SKILL.md").write_text("# Old content")
+        (target / "existing.txt").write_text("still here")
+
+        calls = {"n": 0}
+        real_clone_file = linker.clone_file
+
+        def flaky_clone(src, dst):
+            calls["n"] += 1
+            if calls["n"] >= 2:
+                raise RuntimeError("simulated interruption")
+            return real_clone_file(src, dst)
+
+        monkeypatch.setattr(linker, "clone_file", flaky_clone)
+
+        with pytest.raises(RuntimeError, match="simulated interruption"):
+            place_skill(store_skill, target)
+
+        assert (target / "SKILL.md").read_text() == "# Old content"
+        assert (target / "existing.txt").read_text() == "still here"
+        # No temp dir should be left behind.
+        leftovers = sorted(p.name for p in target.parent.iterdir() if p.name != target.name)
+        assert leftovers == [], f"unexpected siblings: {leftovers}"
 
     def test_preserves_subdirectory_structure(self, tmp_path):
         """Nested directories are preserved during placement."""

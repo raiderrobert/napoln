@@ -6,6 +6,7 @@ Fallback: full copy via shutil.copy2 if reflink is unavailable.
 
 from __future__ import annotations
 
+import os
 import shutil
 from pathlib import Path
 
@@ -51,8 +52,8 @@ def clone_file(src: Path, dst: Path) -> str:
 def place_skill(store_path: Path, target_dir: Path) -> str:
     """Place a skill from the store to a target directory.
 
-    All files from store_path are cloned/copied to target_dir.
-    The link mode is determined by the first file and used consistently.
+    Files are staged into a sibling temp directory, then atomically renamed
+    into place. If staging fails, the existing target_dir is left untouched.
 
     Args:
         store_path: Path to the skill in the content-addressed store.
@@ -61,38 +62,58 @@ def place_skill(store_path: Path, target_dir: Path) -> str:
     Returns:
         "clone" or "copy" depending on the link mode used.
     """
-    if target_dir.exists():
-        shutil.rmtree(target_dir)
+    target_dir.parent.mkdir(parents=True, exist_ok=True)
+    temp_dir = target_dir.parent / f".{target_dir.name}.tmp-placement"
+    old_dir = target_dir.parent / f".{target_dir.name}.old-{os.getpid()}"
 
-    target_dir.mkdir(parents=True, exist_ok=True)
+    if temp_dir.exists():
+        shutil.rmtree(temp_dir)
+    if old_dir.exists():
+        shutil.rmtree(old_dir)
+
+    try:
+        temp_dir.mkdir()
+        link_mode = _populate(store_path, temp_dir)
+
+        if target_dir.exists():
+            os.rename(target_dir, old_dir)
+            try:
+                os.rename(temp_dir, target_dir)
+            except OSError:
+                # Swap failed — put the original back before re-raising.
+                os.rename(old_dir, target_dir)
+                raise
+            shutil.rmtree(old_dir)
+        else:
+            os.rename(temp_dir, target_dir)
+    except BaseException:
+        if temp_dir.exists():
+            shutil.rmtree(temp_dir, ignore_errors=True)
+        raise
+
+    return link_mode
+
+
+def _populate(store_path: Path, target_dir: Path) -> str:
+    """Copy every file from store_path into target_dir, preferring reflink."""
     link_mode: str | None = None
 
     for src_file in sorted(store_path.rglob("*")):
-        if src_file.is_file():
-            rel = src_file.relative_to(store_path)
-            dst_file = target_dir / rel
-            dst_file.parent.mkdir(parents=True, exist_ok=True)
-            mode = clone_file(src_file, dst_file)
-            if link_mode is None:
-                link_mode = mode
-                # If first file failed reflink, don't try again
-                if mode == "copy":
-                    _use_copy_only(store_path, target_dir, rel)
-                    return "copy"
+        if not src_file.is_file():
+            continue
+        rel = src_file.relative_to(store_path)
+        dst_file = target_dir / rel
+        dst_file.parent.mkdir(parents=True, exist_ok=True)
+
+        if link_mode == "copy":
+            shutil.copy2(str(src_file), str(dst_file))
+            continue
+
+        mode = clone_file(src_file, dst_file)
+        if link_mode is None:
+            link_mode = mode
 
     return link_mode or "copy"
-
-
-def _use_copy_only(store_path: Path, target_dir: Path, already_copied: Path) -> None:
-    """Copy remaining files after reflink fallback was triggered."""
-    for src_file in sorted(store_path.rglob("*")):
-        if src_file.is_file():
-            rel = src_file.relative_to(store_path)
-            if rel == already_copied:
-                continue
-            dst_file = target_dir / rel
-            dst_file.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(str(src_file), str(dst_file))
 
 
 def write_provenance(
