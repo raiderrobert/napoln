@@ -7,6 +7,7 @@ replace-if-unchanged semantics.
 
 from __future__ import annotations
 
+import difflib
 import shutil
 import subprocess
 import tempfile
@@ -101,23 +102,97 @@ def _python_merge_file(ours: Path, base: Path, theirs: Path) -> tuple[str, bool]
 
 
 def _line_merge(ours: str, base: str, theirs: str) -> tuple[str, bool]:
-    """Simple line-based three-way merge with conflict markers."""
+    """Hunk-based three-way line merge.
+
+    Disjoint changes on ours and theirs are applied together without conflicts.
+    Overlapping changes produce conflict markers scoped to the conflicting
+    region instead of the whole file.
+    """
     ours_lines = ours.splitlines(keepends=True)
+    base_lines = base.splitlines(keepends=True)
     theirs_lines = theirs.splitlines(keepends=True)
 
-    if ours == theirs:
-        # Both made the same change
-        return ours, False
+    if ours_lines == theirs_lines:
+        return "".join(ours_lines), False
 
-    # Simple fallback: produce conflict markers for the entire file
-    result = []
-    result.append("<<<<<<< local (your changes)\n")
-    result.extend(ours_lines)
-    result.append("=======\n")
-    result.extend(theirs_lines)
-    result.append(">>>>>>> upstream\n")
+    ours_hunks = _diff_hunks(base_lines, ours_lines)
+    theirs_hunks = _diff_hunks(base_lines, theirs_lines)
 
-    return "".join(result), True
+    tagged = [(i1, i2, new, "ours") for (i1, i2, new) in ours_hunks] + [
+        (i1, i2, new, "theirs") for (i1, i2, new) in theirs_hunks
+    ]
+    tagged.sort(key=lambda h: (h[0], h[1]))
+
+    groups: list[list[tuple[int, int, list[str], str]]] = []
+    for hunk in tagged:
+        if groups and hunk[0] <= max(h[1] for h in groups[-1]):
+            groups[-1].append(hunk)
+        else:
+            groups.append([hunk])
+
+    merged: list[str] = []
+    base_idx = 0
+    has_conflicts = False
+
+    for group in groups:
+        g_start = min(h[0] for h in group)
+        g_end = max(h[1] for h in group)
+        merged.extend(base_lines[base_idx:g_start])
+
+        sides = {h[3] for h in group}
+        if sides == {"ours"} or sides == {"theirs"}:
+            merged.extend(_apply_hunks(base_lines, group, g_start, g_end))
+        else:
+            ours_region = _apply_hunks(
+                base_lines, [h for h in group if h[3] == "ours"], g_start, g_end
+            )
+            theirs_region = _apply_hunks(
+                base_lines, [h for h in group if h[3] == "theirs"], g_start, g_end
+            )
+            if ours_region == theirs_region:
+                merged.extend(ours_region)
+            else:
+                merged.append("<<<<<<< local (your changes)\n")
+                merged.extend(ours_region)
+                merged.append("=======\n")
+                merged.extend(theirs_region)
+                merged.append(">>>>>>> upstream\n")
+                has_conflicts = True
+
+        base_idx = g_end
+
+    merged.extend(base_lines[base_idx:])
+    return "".join(merged), has_conflicts
+
+
+def _diff_hunks(base: list[str], other: list[str]) -> list[tuple[int, int, list[str]]]:
+    """Return the non-equal opcodes as (base_start, base_end, replacement_lines)."""
+    matcher = difflib.SequenceMatcher(a=base, b=other, autojunk=False)
+    hunks: list[tuple[int, int, list[str]]] = []
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            continue
+        hunks.append((i1, i2, other[j1:j2]))
+    return hunks
+
+
+def _apply_hunks(
+    base: list[str],
+    hunks: list[tuple[int, int, list[str], str]],
+    start: int,
+    end: int,
+) -> list[str]:
+    """Apply a set of non-overlapping hunks to base[start:end]."""
+    result: list[str] = []
+    idx = start
+    for i1, i2, new_lines, _side in sorted(hunks, key=lambda h: h[0]):
+        if i1 > idx:
+            result.extend(base[idx:i1])
+        result.extend(new_lines)
+        idx = i2
+    if idx < end:
+        result.extend(base[idx:end])
+    return result
 
 
 def merge_skill(

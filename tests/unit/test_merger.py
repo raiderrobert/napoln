@@ -2,7 +2,15 @@
 
 import pytest
 
+from napoln.core import merger
 from napoln.core.merger import has_conflict_markers, merge_file, merge_skill
+
+
+def _write_triplet(tmp_path, ours, base, theirs):
+    (tmp_path / "ours").write_text(ours)
+    (tmp_path / "base").write_text(base)
+    (tmp_path / "theirs").write_text(theirs)
+    return tmp_path / "ours", tmp_path / "base", tmp_path / "theirs"
 
 
 class TestMergeFile:
@@ -65,6 +73,71 @@ class TestMergeFile:
         )
         assert has_conflicts
         assert "<<<<<<<" in merged
+
+
+class TestPythonFallbackMerge:
+    """Python fallback merge (used when git is unavailable)."""
+
+    @pytest.fixture(autouse=True)
+    def _force_fallback(self, monkeypatch):
+        monkeypatch.setattr(merger, "has_git", lambda: False)
+
+    def test_disjoint_additions_merge_cleanly(self, tmp_path):
+        """Adding lines at opposite ends of the file must not conflict."""
+        base = "# Skill\n\n## Instructions\n1. Step one\n2. Step two\n"
+        ours = "# Skill\n\n## Instructions\n1. Step one\n2. Step two\n\n## Tips\nAsk for help if stuck.\n"
+        theirs = (
+            "# Skill\n\n## Prerequisites\nRequires Python 3.11+\n\n"
+            "## Instructions\n1. Step one\n2. Step two\n"
+        )
+
+        ours_p, base_p, theirs_p = _write_triplet(tmp_path, ours, base, theirs)
+        merged, has_conflicts = merge_file(ours_p, base_p, theirs_p)
+
+        assert not has_conflicts
+        assert "<<<<<<<" not in merged
+        assert "## Tips" in merged
+        assert "## Prerequisites" in merged
+        assert "Requires Python 3.11+" in merged
+        assert "Ask for help if stuck." in merged
+
+    def test_overlapping_edits_emit_conflict_markers(self, tmp_path):
+        """When both sides edit the same region the result has conflict markers."""
+        base = "line 1\nline 2\nline 3\n"
+        ours = "line 1\nlocal change\nline 3\n"
+        theirs = "line 1\nupstream change\nline 3\n"
+
+        ours_p, base_p, theirs_p = _write_triplet(tmp_path, ours, base, theirs)
+        merged, has_conflicts = merge_file(ours_p, base_p, theirs_p)
+
+        assert has_conflicts
+        assert "<<<<<<<" in merged
+        assert "=======" in merged
+        assert ">>>>>>>" in merged
+        assert "local change" in merged
+        assert "upstream change" in merged
+        # Unchanged context around the conflict is preserved outside the markers.
+        assert merged.startswith("line 1\n")
+        assert merged.rstrip().endswith("line 3")
+
+    def test_identical_changes_merge_cleanly(self, tmp_path):
+        """If both sides make the same change, no conflict."""
+        ours_p, base_p, theirs_p = _write_triplet(tmp_path, "v2\n", "v1\n", "v2\n")
+        merged, has_conflicts = merge_file(ours_p, base_p, theirs_p)
+        assert not has_conflicts
+        assert merged == "v2\n"
+
+    def test_only_local_changes(self, tmp_path):
+        ours_p, base_p, theirs_p = _write_triplet(tmp_path, "local\n", "base\n", "base\n")
+        merged, has_conflicts = merge_file(ours_p, base_p, theirs_p)
+        assert not has_conflicts
+        assert merged == "local\n"
+
+    def test_only_upstream_changes(self, tmp_path):
+        ours_p, base_p, theirs_p = _write_triplet(tmp_path, "base\n", "base\n", "upstream\n")
+        merged, has_conflicts = merge_file(ours_p, base_p, theirs_p)
+        assert not has_conflicts
+        assert merged == "upstream\n"
 
 
 @pytest.fixture
