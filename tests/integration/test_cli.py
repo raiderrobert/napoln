@@ -416,6 +416,71 @@ class TestInitCommand:
         assert result.exit_code == 0
         assert "Scaffold" in result.output
 
+    def test_init_creates_gitignore_inside_git_repo(self, runner, tmp_path):
+        import os
+
+        (tmp_path / ".git").mkdir()
+        old_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            result = runner.invoke(app, ["init", "my-skill"])
+            assert result.exit_code == 0
+            gitignore = (tmp_path / ".gitignore").read_text()
+            assert ".claude/skills/" in gitignore
+            assert ".agents/skills/" in gitignore
+            assert ".cursor/skills/" in gitignore
+            assert "gitignore" in result.output.lower()
+        finally:
+            os.chdir(old_cwd)
+
+    def test_init_gitignore_is_idempotent(self, runner, tmp_path):
+        import os
+
+        (tmp_path / ".git").mkdir()
+        existing = "# existing rules\n.claude/skills/\n.agents/skills/\n.cursor/skills/\n"
+        (tmp_path / ".gitignore").write_text(existing)
+
+        old_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            result = runner.invoke(app, ["init", "my-skill"])
+            assert result.exit_code == 0
+            # No duplicates, no spurious changes.
+            assert (tmp_path / ".gitignore").read_text() == existing
+            assert "already" in result.output.lower() or "no changes" in result.output.lower()
+        finally:
+            os.chdir(old_cwd)
+
+    def test_init_gitignore_appends_only_missing_entries(self, runner, tmp_path):
+        import os
+
+        (tmp_path / ".git").mkdir()
+        (tmp_path / ".gitignore").write_text("# existing\n.claude/skills/\n")
+
+        old_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            result = runner.invoke(app, ["init", "my-skill"])
+            assert result.exit_code == 0
+            content = (tmp_path / ".gitignore").read_text()
+            assert content.count(".claude/skills/") == 1
+            assert ".agents/skills/" in content
+            assert ".cursor/skills/" in content
+        finally:
+            os.chdir(old_cwd)
+
+    def test_init_skips_gitignore_outside_git_repo(self, runner, tmp_path):
+        import os
+
+        old_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            result = runner.invoke(app, ["init", "my-skill"])
+            assert result.exit_code == 0
+            assert not (tmp_path / ".gitignore").exists()
+        finally:
+            os.chdir(old_cwd)
+
 
 class TestConfigCommand:
     def test_config_show(self, runner, isolated_env, local_skill):
