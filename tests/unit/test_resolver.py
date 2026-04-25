@@ -1,8 +1,17 @@
 """Tests for napoln.core.resolver — source parsing and resolution."""
 
+import subprocess
+
 import pytest
 
-from napoln.core.resolver import ParsedSource, parse_source, resolve_local
+from napoln.core import resolver
+from napoln.core.resolver import (
+    ParsedSource,
+    _fetch_sentinel,
+    _should_fetch,
+    parse_source,
+    resolve_local,
+)
 from napoln.errors import ResolverError
 
 
@@ -186,3 +195,100 @@ class TestResolveLocal:
 
         resolved = resolve_local(_local_parsed(skill_dir))
         assert resolved.version == "0.0.0"
+
+
+class TestShouldFetch:
+    """Throttle decision for cached git fetches."""
+
+    def test_missing_sentinel_triggers_fetch(self, tmp_path):
+        assert _should_fetch(tmp_path / ".missing") is True
+
+    def test_recent_sentinel_skips_fetch(self, tmp_path):
+        sentinel = tmp_path / ".last-fetch"
+        sentinel.touch()
+        assert _should_fetch(sentinel, now=sentinel.stat().st_mtime + 10) is False
+
+    def test_stale_sentinel_triggers_fetch(self, tmp_path):
+        sentinel = tmp_path / ".last-fetch"
+        sentinel.touch()
+        assert _should_fetch(sentinel, now=sentinel.stat().st_mtime + 3600) is True
+
+
+class TestResolveGitFetch:
+    """resolve_git fetch scope and throttling."""
+
+    @pytest.fixture
+    def git_parsed(self):
+        return ParsedSource(
+            source_type="git",
+            host="github.com",
+            owner="owner",
+            repo="repo",
+            path="",
+            version="main",
+            original="owner/repo@main",
+        )
+
+    @pytest.fixture
+    def populated_cache(self, tmp_path, git_parsed):
+        """A cache dir with an already-cloned repo containing a SKILL.md."""
+        cache_dir = tmp_path / "cache"
+        clone_dir = cache_dir / f"{git_parsed.owner}-{git_parsed.repo}"
+        clone_dir.mkdir(parents=True)
+        (clone_dir / "SKILL.md").write_text("---\nname: repo\ndescription: x\n---\n# Hi")
+        return cache_dir, clone_dir
+
+    def _install_fake_git(self, monkeypatch, calls):
+        monkeypatch.setattr(resolver.shutil, "which", lambda _: "/usr/bin/git")
+
+        def fake_run(cmd, *_args, **_kwargs):
+            calls.append(list(cmd))
+            return subprocess.CompletedProcess(cmd, 0, stdout=b"", stderr=b"")
+
+        monkeypatch.setattr(resolver.subprocess, "run", fake_run)
+
+    def test_fetch_uses_origin_not_all_and_writes_sentinel(
+        self, monkeypatch, git_parsed, populated_cache
+    ):
+        cache_dir, _ = populated_cache
+        calls: list[list[str]] = []
+        self._install_fake_git(monkeypatch, calls)
+
+        resolver.resolve_git(git_parsed, cache_dir)
+
+        fetch_calls = [c for c in calls if c[:2] == ["git", "fetch"]]
+        assert fetch_calls == [["git", "fetch", "origin", "--tags"]]
+        assert _fetch_sentinel(cache_dir, git_parsed.owner, git_parsed.repo).exists()
+
+    def test_second_resolve_within_throttle_skips_fetch(
+        self, monkeypatch, git_parsed, populated_cache
+    ):
+        cache_dir, _ = populated_cache
+        calls: list[list[str]] = []
+        self._install_fake_git(monkeypatch, calls)
+
+        resolver.resolve_git(git_parsed, cache_dir)
+        fetch_count_after_first = sum(1 for c in calls if c[:2] == ["git", "fetch"])
+        resolver.resolve_git(git_parsed, cache_dir)
+        fetch_count_after_second = sum(1 for c in calls if c[:2] == ["git", "fetch"])
+
+        assert fetch_count_after_first == 1
+        assert fetch_count_after_second == 1  # second call reused the cache
+
+    def test_stale_sentinel_re_fetches(self, monkeypatch, git_parsed, populated_cache):
+        cache_dir, _ = populated_cache
+        calls: list[list[str]] = []
+        self._install_fake_git(monkeypatch, calls)
+
+        resolver.resolve_git(git_parsed, cache_dir)
+
+        sentinel = _fetch_sentinel(cache_dir, git_parsed.owner, git_parsed.repo)
+        import os as _os
+
+        old = sentinel.stat().st_mtime - (resolver._FETCH_THROTTLE_SECONDS + 60)
+        _os.utime(sentinel, (old, old))
+
+        resolver.resolve_git(git_parsed, cache_dir)
+
+        fetch_calls = [c for c in calls if c[:2] == ["git", "fetch"]]
+        assert len(fetch_calls) == 2

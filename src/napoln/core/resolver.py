@@ -8,6 +8,7 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -34,6 +35,26 @@ _DOMAIN_PATH = re.compile(
     r"^([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/([a-zA-Z0-9._-]+)/([a-zA-Z0-9._-]+)(?:/(.+?))?(?:@(.+))?$"
 )
 _SEMVER_TAG = re.compile(r"^v?(\d+\.\d+\.\d+(?:-.+)?)$")
+
+# Cached git fetches are considered fresh within this many seconds.
+_FETCH_THROTTLE_SECONDS = 300
+
+
+def _fetch_sentinel(cache_dir: Path, owner: str, repo: str) -> Path:
+    """Return the path to the last-fetch marker for a cached clone."""
+    return cache_dir / f".{owner}-{repo}.last-fetch"
+
+
+def _should_fetch(sentinel: Path, now: float | None = None) -> bool:
+    """Return True if the cached clone's fetch marker is missing or stale."""
+    if not sentinel.exists():
+        return True
+    try:
+        mtime = sentinel.stat().st_mtime
+    except OSError:
+        return True
+    current = time.time() if now is None else now
+    return (current - mtime) >= _FETCH_THROTTLE_SECONDS
 
 
 @dataclass
@@ -222,16 +243,20 @@ def resolve_git(
 
     repo_url = f"https://{parsed.host}/{parsed.owner}/{parsed.repo}.git"
     clone_dir = cache_dir / f"{parsed.owner}-{parsed.repo}"
+    sentinel = _fetch_sentinel(cache_dir, parsed.owner, parsed.repo)
 
     try:
         if clone_dir.exists():
-            # Update existing clone
-            subprocess.run(
-                ["git", "fetch", "--all", "--tags"],
-                cwd=str(clone_dir),
-                capture_output=True,
-                check=True,
-            )
+            # Refresh the existing clone, but throttle to avoid a fetch per
+            # add/upgrade on large repos.
+            if _should_fetch(sentinel):
+                subprocess.run(
+                    ["git", "fetch", "origin", "--tags"],
+                    cwd=str(clone_dir),
+                    capture_output=True,
+                    check=True,
+                )
+                sentinel.touch()
         else:
             # Fresh clone
             clone_dir.mkdir(parents=True, exist_ok=True)
@@ -240,6 +265,7 @@ def resolve_git(
                 capture_output=True,
                 check=True,
             )
+            sentinel.touch()
     except subprocess.CalledProcessError as e:
         raise ResolverError(
             f"Failed to clone {repo_url}",
