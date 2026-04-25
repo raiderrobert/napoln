@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.11](https://github.com/raiderrobert/napoln/compare/v0.2.10...v0.2.11) (2026-04-25)
+
+
+### Features
+
+* add napoln enable command ([#72](https://github.com/raiderrobert/napoln/issues/72)) ([ba6e611](https://github.com/raiderrobert/napoln/commit/ba6e6111bee07f12f1de9dbbf617a46d72f7251c))
+
+
+### Documentation
+
+* add implementation plan for napoln enable command ([d91a851](https://github.com/raiderrobert/napoln/commit/d91a8516cb55121b64ef8bc85956ef2eabdfdc3b))
+* add spec for napoln enable command ([b9f5da2](https://github.com/raiderrobert/napoln/commit/b9f5da22fdbcbea5e7cafd429ac5e421e5af05d0))
+
 ## [0.2.10](https://github.com/raiderrobert/napoln/compare/v0.2.9...v0.2.10) (2026-04-25)
 
 
