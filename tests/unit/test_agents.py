@@ -21,6 +21,7 @@ class TestAgentConfig:
             ("pi", ".agents/skills"),
             ("codex", ".agents/skills"),
             ("cursor", ".cursor/skills"),
+            ("hermes", ".hermes/skills"),
         ],
     )
     def test_global_paths(self, tmp_path, agent_id, global_dir):
@@ -36,6 +37,7 @@ class TestAgentConfig:
             ("pi", ".agents/skills"),
             ("codex", ".agents/skills"),
             ("cursor", ".agents/skills"),
+            ("hermes", ".hermes/skills"),
         ],
     )
     def test_project_paths(self, tmp_path, agent_id, project_dir):
@@ -65,6 +67,7 @@ class TestDetectAgents:
             (".gemini", "gemini-cli"),
             (".pi", "pi"),
             (".cursor", "cursor"),
+            (".hermes", "hermes"),
         ],
     )
     def test_detects_agent_by_config_dir(self, tmp_path, dot_dir, expected_agent_id):

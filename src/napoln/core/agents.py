@@ -1,6 +1,6 @@
 """Agent detection and path configuration.
 
-Supports: Claude Code, Gemini CLI, pi, Codex, Cursor.
+Supports: Claude Code, Gemini CLI, pi, Codex, Cursor, Hermes.
 """
 
 from __future__ import annotations
@@ -66,6 +66,12 @@ AGENTS: dict[str, AgentConfig] = {
         global_skill_dir=".cursor/skills",
         project_skill_dir=".agents/skills",
     ),
+    "hermes": AgentConfig(
+        id="hermes",
+        display_name="Hermes",
+        global_skill_dir=".hermes/skills",
+        project_skill_dir=".hermes/skills",
+    ),
 }
 
 
@@ -90,6 +96,7 @@ def detect_agents(
         - pi: ~/.pi/ exists OR `pi` on PATH
         - Codex: `codex` on PATH
         - Cursor: ~/.cursor/ exists
+        - Hermes: ~/.hermes/ exists OR `hermes` on PATH
 
     For project scope, checks for agent directories in project root.
 
@@ -118,6 +125,9 @@ def detect_agents(
 
         if _check_dir_exists(home / ".cursor"):
             detected.append(AGENTS["cursor"])
+
+        if _check_dir_exists(home / ".hermes") or _check_on_path("hermes"):
+            detected.append(AGENTS["hermes"])
     elif scope == "project" and project_root:
         if _check_dir_exists(project_root / ".claude"):
             detected.append(AGENTS["claude-code"])
@@ -134,6 +144,9 @@ def detect_agents(
                 detected.append(AGENTS["codex"])
             if AGENTS["cursor"] not in detected:
                 detected.append(AGENTS["cursor"])
+
+        if _check_dir_exists(project_root / ".hermes"):
+            detected.append(AGENTS["hermes"])
 
     return detected
 
