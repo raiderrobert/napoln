@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.2.10](https://github.com/raiderrobert/napoln/compare/v0.2.9...v0.2.10) (2026-04-25)
+
+
+### Features
+
+* add Hermes agent support ([e8745e1](https://github.com/raiderrobert/napoln/commit/e8745e19a29c7135014d4dc7e93798ea46079dc3))
+
+
+### Bug Fixes
+
+* write manifest atomically via temp + rename ([#63](https://github.com/raiderrobert/napoln/issues/63)) ([7751e0f](https://github.com/raiderrobert/napoln/commit/7751e0fa796353b9833f74ae152419055caffdd1)), closes [#20](https://github.com/raiderrobert/napoln/issues/20)
+
+
+### Performance Improvements
+
+* scope and throttle git fetches in resolve_git ([#66](https://github.com/raiderrobert/napoln/issues/66)) ([6c4d0da](https://github.com/raiderrobert/napoln/commit/6c4d0daee3afa975252c57b988de13a7c7684bbe)), closes [#25](https://github.com/raiderrobert/napoln/issues/25)
+
 ## [0.2.9](https://github.com/raiderrobert/napoln/compare/v0.2.8...v0.2.9) (2026-04-22)
 
 
