@@ -225,6 +225,34 @@ def install(
     raise typer.Exit(code=exit_code)
 
 
+# ─── enable ──────────────────────────────────────────────────────────────────
+
+
+@app.command()
+def enable(
+    agent: Annotated[
+        Optional[str],
+        typer.Argument(help="Agent to enable skills for (e.g., hermes, claude-code)."),
+    ] = None,
+    project: Annotated[
+        bool, typer.Option("--project", "-p", help="Enable skills in project scope.")
+    ] = False,
+) -> None:
+    """Extend installed skills to additional agents."""
+    from napoln.commands.enable import run_enable
+
+    agent_ids = [agent] if agent else None
+    scope = "project" if project else "global"
+    project_root = Path.cwd() if project else None
+
+    exit_code = run_enable(
+        agent_ids=agent_ids,
+        scope=scope,
+        project_root=project_root,
+    )
+    raise typer.Exit(code=exit_code)
+
+
 # ─── init ─────────────────────────────────────────────────────────────────────
 
 
