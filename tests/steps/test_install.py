@@ -75,9 +75,7 @@ def run_add(env: NapolnTestEnv, cli_runner: CliRunner):
 
 @when("I run napoln add with dry run", target_fixture="result_env")
 def run_add_dry(env: NapolnTestEnv, cli_runner: CliRunner):
-    env.result = cli_runner.invoke(
-        app, ["add", str(env.skill_dir), "--dry-run"], env=env.env_vars
-    )
+    env.result = cli_runner.invoke(app, ["add", str(env.skill_dir), "--dry-run"], env=env.env_vars)
     return env
 
 
@@ -166,6 +164,4 @@ def no_placements(result_env: NapolnTestEnv):
 
 @then(parsers.parse('the output contains "{text}"'))
 def output_contains(result_env: NapolnTestEnv, text: str):
-    assert text in result_env.result.output, (
-        f"Expected '{text}' in:\n{result_env.result.output}"
-    )
+    assert text in result_env.result.output, f"Expected '{text}' in:\n{result_env.result.output}"

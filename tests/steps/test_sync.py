@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import shutil
-from pathlib import Path
 
 import tomli_w
 from pytest_bdd import given, parsers, scenario, then, when
@@ -59,7 +58,9 @@ def napoln_home_no_manifest(env: NapolnTestEnv):
     parsers.parse('a project manifest references "{name}" from a local source'),
 )
 def project_manifest_with_skill(
-    env: NapolnTestEnv, name: str, monkeypatch,
+    env: NapolnTestEnv,
+    name: str,
+    monkeypatch,
 ):
     from napoln.core.hasher import hash_skill
 
@@ -140,9 +141,7 @@ def skill_placed(result_env: NapolnTestEnv):
 
 @then(parsers.parse('the output contains "{text}"'))
 def output_contains(result_env: NapolnTestEnv, text: str):
-    assert text in result_env.result.output, (
-        f"Expected '{text}' in:\n{result_env.result.output}"
-    )
+    assert text in result_env.result.output, f"Expected '{text}' in:\n{result_env.result.output}"
 
 
 @then(parsers.parse("the exit code is {code:d}"))

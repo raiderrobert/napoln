@@ -69,7 +69,9 @@ def run_add_no_agents(napoln_env_no_agents: NapolnTestEnv, cli_runner: CliRunner
     target_fixture="run_result",
 )
 def run_add_bare_name(
-    napoln_env_with_claude: NapolnTestEnv, name: str, cli_runner: CliRunner,
+    napoln_env_with_claude: NapolnTestEnv,
+    name: str,
+    cli_runner: CliRunner,
 ):
     env = napoln_env_with_claude
     env.result = cli_runner.invoke(app, ["add", name], env=env.env_vars)

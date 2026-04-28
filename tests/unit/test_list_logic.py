@@ -50,10 +50,12 @@ class TestGetAgentDirs:
         assert _get_agent_dirs(entry, "/home/user") == [".claude"]
 
     def test_shared_placement_deduplicates(self):
-        entry = _entry_with_agents({
-            "pi": "/home/user/.agents/skills/my-skill",
-            "codex": "/home/user/.agents/skills/my-skill",
-        })
+        entry = _entry_with_agents(
+            {
+                "pi": "/home/user/.agents/skills/my-skill",
+                "codex": "/home/user/.agents/skills/my-skill",
+            }
+        )
         assert _get_agent_dirs(entry, "/home/user") == [".agents"]
 
     def test_no_agents(self):
@@ -83,17 +85,21 @@ class TestCommonAgentDirs:
 
 class TestGetPlacementDirs:
     def test_deduplicates_shared_path(self):
-        entry = _entry_with_agents({
-            "pi": "/home/user/.agents/skills/my-skill",
-            "codex": "/home/user/.agents/skills/my-skill",
-        })
+        entry = _entry_with_agents(
+            {
+                "pi": "/home/user/.agents/skills/my-skill",
+                "codex": "/home/user/.agents/skills/my-skill",
+            }
+        )
         assert _get_placement_dirs(entry, "/home/user") == ["~/.agents/skills"]
 
     def test_multiple_distinct_paths(self):
-        entry = _entry_with_agents({
-            "claude-code": "/home/user/.claude/skills/my-skill",
-            "cursor": "/home/user/.cursor/skills/my-skill",
-        })
+        entry = _entry_with_agents(
+            {
+                "claude-code": "/home/user/.claude/skills/my-skill",
+                "cursor": "/home/user/.cursor/skills/my-skill",
+            }
+        )
         dirs = _get_placement_dirs(entry, "/home/user")
         assert "~/.claude/skills" in dirs
         assert "~/.cursor/skills" in dirs

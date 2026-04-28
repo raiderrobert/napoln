@@ -115,9 +115,7 @@ class TestRestorePlacement:
         )
 
         placement = tmp_path / "agents" / "skills" / "restore-test"
-        result = restore_placement(
-            store_path, placement, "owner/repo", "1.0.0", content_hash
-        )
+        result = restore_placement(store_path, placement, "owner/repo", "1.0.0", content_hash)
 
         assert result is not None
         assert (placement / "SKILL.md").exists()
@@ -138,9 +136,7 @@ class TestRestorePlacement:
         placement.mkdir(parents=True)
         (placement / "SKILL.md").write_text("already here")
 
-        result = restore_placement(
-            store_path, placement, "owner/repo", "1.0.0", content_hash
-        )
+        result = restore_placement(store_path, placement, "owner/repo", "1.0.0", content_hash)
 
         assert result is None
         assert (placement / "SKILL.md").read_text() == "already here"
