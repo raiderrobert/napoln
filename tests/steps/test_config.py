@@ -29,6 +29,16 @@ def test_config_gc_dry():
     pass
 
 
+@scenario("../features/config.feature", "Set a config value")
+def test_config_set():
+    pass
+
+
+@scenario("../features/config.feature", "Doctor with JSON output")
+def test_config_doctor_json():
+    pass
+
+
 # ─── Given ────────────────────────────────────────────────────────────────────
 
 
@@ -75,6 +85,21 @@ def run_gc(env: NapolnTestEnv, cli_runner: CliRunner):
 @when("I run napoln config gc --dry-run", target_fixture="result_env")
 def run_gc_dry(env: NapolnTestEnv, cli_runner: CliRunner):
     env.result = cli_runner.invoke(app, ["config", "gc", "--dry-run"], env=env.env_vars)
+    return env
+
+
+@when(
+    parsers.parse("I run napoln config set {key} {value}"),
+    target_fixture="result_env",
+)
+def run_config_set(env: NapolnTestEnv, key: str, value: str, cli_runner: CliRunner):
+    env.result = cli_runner.invoke(app, ["config", "set", key, value], env=env.env_vars)
+    return env
+
+
+@when("I run napoln config doctor --json", target_fixture="result_env")
+def run_doctor_json(env: NapolnTestEnv, cli_runner: CliRunner):
+    env.result = cli_runner.invoke(app, ["config", "doctor", "--json"], env=env.env_vars)
     return env
 
 

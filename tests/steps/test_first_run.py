@@ -19,6 +19,11 @@ def test_first_run_no_agents():
     pass
 
 
+@scenario("../features/first_run.feature", "Registry identifiers are not yet available")
+def test_registry_not_available():
+    pass
+
+
 # ─── Given ────────────────────────────────────────────────────────────────────
 
 
@@ -56,6 +61,18 @@ def run_add_no_agents(napoln_env_no_agents: NapolnTestEnv, cli_runner: CliRunner
     # Ensure no agents are detected even if pi/codex are on PATH
     monkeypatch.setattr("napoln.core.agents._check_on_path", lambda cmd: False)
     env.result = cli_runner.invoke(app, ["add", str(skill_path)], env=env.env_vars)
+    return env
+
+
+@when(
+    parsers.parse('I run napoln add with a bare name "{name}"'),
+    target_fixture="run_result",
+)
+def run_add_bare_name(
+    napoln_env_with_claude: NapolnTestEnv, name: str, cli_runner: CliRunner,
+):
+    env = napoln_env_with_claude
+    env.result = cli_runner.invoke(app, ["add", name], env=env.env_vars)
     return env
 
 
