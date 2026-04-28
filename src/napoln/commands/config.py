@@ -67,6 +67,19 @@ def run_config_show() -> int:
 # ─── config set ───────────────────────────────────────────────────────────────
 
 
+def _parse_config_value(value: str) -> str | bool | int | list[str]:
+    """Parse a config value string into a typed Python value."""
+    if value.lower() in ("true", "yes"):
+        return True
+    if value.lower() in ("false", "no"):
+        return False
+    if value.isdigit():
+        return int(value)
+    if "," in value:
+        return [v.strip() for v in value.split(",")]
+    return value
+
+
 def run_config_set(key: str, value: str) -> int:
     """Set a configuration value.
 
@@ -92,18 +105,7 @@ def run_config_set(key: str, value: str) -> int:
     if section not in data:
         data[section] = {}
 
-    # Parse value
-    parsed_value: str | bool | int | list
-    if value.lower() in ("true", "yes"):
-        parsed_value = True
-    elif value.lower() in ("false", "no"):
-        parsed_value = False
-    elif value.isdigit():
-        parsed_value = int(value)
-    elif "," in value:
-        parsed_value = [v.strip() for v in value.split(",")]
-    else:
-        parsed_value = value
+    parsed_value = _parse_config_value(value)
 
     data[section][field] = parsed_value
 
