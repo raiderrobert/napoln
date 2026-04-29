@@ -401,7 +401,7 @@ wheels = [
 
 [[package]]
 name = "napoln"
-version = "0.2.7"
+version = "0.2.11"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },

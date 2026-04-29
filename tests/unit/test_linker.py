@@ -2,7 +2,7 @@
 
 import pytest
 
-from napoln.core.linker import clone_file, place_skill
+from napoln.core.linker import clone_file, place_skill, restore_placement
 
 
 @pytest.fixture
@@ -98,3 +98,45 @@ class TestCloneFile:
         dst = tmp_path / "dst.txt"
         mode = clone_file(src_file, dst)
         assert mode in ("clone", "copy")
+
+
+class TestRestorePlacement:
+    """restore_placement — idempotent placement from store."""
+
+    def test_places_when_missing(self, tmp_path, skill_builder):
+        skill_path = skill_builder(name="restore-test")
+        from napoln.core import store as store_mod
+
+        napoln_home = tmp_path / ".napoln"
+        napoln_home.mkdir()
+        (napoln_home / "store").mkdir()
+        store_path, content_hash = store_mod.store_skill(
+            skill_path, "restore-test", "1.0.0", napoln_home
+        )
+
+        placement = tmp_path / "agents" / "skills" / "restore-test"
+        result = restore_placement(store_path, placement, "owner/repo", "1.0.0", content_hash)
+
+        assert result is not None
+        assert (placement / "SKILL.md").exists()
+        assert (placement / ".napoln").exists()
+
+    def test_skips_when_already_exists(self, tmp_path, skill_builder):
+        skill_path = skill_builder(name="exists-test")
+        from napoln.core import store as store_mod
+
+        napoln_home = tmp_path / ".napoln"
+        napoln_home.mkdir()
+        (napoln_home / "store").mkdir()
+        store_path, content_hash = store_mod.store_skill(
+            skill_path, "exists-test", "1.0.0", napoln_home
+        )
+
+        placement = tmp_path / "agents" / "skills" / "exists-test"
+        placement.mkdir(parents=True)
+        (placement / "SKILL.md").write_text("already here")
+
+        result = restore_placement(store_path, placement, "owner/repo", "1.0.0", content_hash)
+
+        assert result is None
+        assert (placement / "SKILL.md").read_text() == "already here"

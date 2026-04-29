@@ -18,3 +18,10 @@ Feature: First run experience
     When I run napoln add with a valid local skill and no agents
     Then the output contains "No agents detected"
     And the exit code is 1
+
+  Scenario: Registry identifiers are not yet available
+    Given Claude Code is installed
+    And napoln has never been run
+    When I run napoln add with a bare name "my-skill"
+    Then the output contains "not yet available"
+    And the exit code is 1
