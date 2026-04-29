@@ -37,7 +37,6 @@ def skill_md_exists(napoln_env: NapolnTestEnv, name: str):
 
 @when(parsers.parse('I run napoln init with name "{name}"'), target_fixture="result_env")
 def run_init(napoln_env: NapolnTestEnv, name: str, cli_runner: CliRunner):
-    # Use a workdir so we control where the file is created
     workdir = napoln_env.tmp_path / "workdir"
     workdir.mkdir(exist_ok=True)
     old_cwd = os.getcwd()
@@ -50,6 +49,7 @@ def run_init(napoln_env: NapolnTestEnv, name: str, cli_runner: CliRunner):
 
 
 # ─── Then ────────────────────────────────────────────────────────────────────
+# "the exit code is" and "the output contains" are in conftest.
 
 
 @then(parsers.parse('"{path}" exists'))
@@ -60,19 +60,8 @@ def file_exists(result_env: NapolnTestEnv, path: str):
 
 @then(parsers.parse('the SKILL.md contains "{text}"'))
 def skill_md_contains(result_env: NapolnTestEnv, text: str):
-    # Find the SKILL.md that was created
     workdir = result_env.tmp_path / "workdir"
     skill_files = list(workdir.rglob("SKILL.md"))
     assert skill_files, "No SKILL.md found"
     content = skill_files[0].read_text()
     assert text in content, f"Expected '{text}' in:\n{content}"
-
-
-@then(parsers.parse('the output contains "{text}"'))
-def output_contains(result_env: NapolnTestEnv, text: str):
-    assert text in result_env.result.output
-
-
-@then(parsers.parse("the exit code is {code:d}"))
-def check_exit_code(result_env: NapolnTestEnv, code: int):
-    assert result_env.result.exit_code == code

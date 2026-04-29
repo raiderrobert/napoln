@@ -58,19 +58,11 @@ def test_script_kept():
 
 
 # ─── Given ────────────────────────────────────────────────────────────────────
-
-
-@given("Claude Code is installed", target_fixture="env")
-def claude_installed(napoln_env: NapolnTestEnv, monkeypatch):
-    (napoln_env.home / ".claude").mkdir(parents=True, exist_ok=True)
-    # Block PATH-based detection so pi/codex on the developer's machine don't
-    # leak into the test and create a second shared `.agents/skills/` placement.
-    monkeypatch.setattr("napoln.core.agents._check_on_path", lambda cmd: False)
-    return napoln_env
+# "Claude Code is installed" is in conftest.
 
 
 @given(parsers.parse('a skill "{name}" is installed at version "{version}"'))
-def skill_installed(env: NapolnTestEnv, name: str, version: str, cli_runner: CliRunner):
+def skill_installed_at_version(env: NapolnTestEnv, name: str, version: str, cli_runner: CliRunner):
     env.create_local_skill(name, version, BASE_BODY)
     env.result = cli_runner.invoke(app, ["add", str(env.skill_dir)], env=env.env_vars)
     assert env.result.exit_code == 0, env.result.output
@@ -182,6 +174,7 @@ def run_upgrade(env: NapolnTestEnv, name: str, cli_runner: CliRunner):
 
 
 # ─── Then ────────────────────────────────────────────────────────────────────
+# "the exit code is" and "the output contains" are in conftest.
 
 
 @then("the Claude Code placement contains the new upstream content")
@@ -217,11 +210,6 @@ def has_conflict_markers(result_env: NapolnTestEnv):
     )
 
 
-@then(parsers.parse('the output contains "{text}"'))
-def output_contains(result_env: NapolnTestEnv, text: str):
-    assert text in result_env.result.output, f"Expected '{text}' in:\n{result_env.result.output}"
-
-
 @then("the script in the Claude Code placement matches the new upstream")
 def script_matches_upstream(result_env: NapolnTestEnv):
     script = result_env.claude_skill_path("test-skill") / "scripts" / "run.sh"
@@ -232,11 +220,3 @@ def script_matches_upstream(result_env: NapolnTestEnv):
 def script_retains_local(result_env: NapolnTestEnv):
     script = result_env.claude_skill_path("test-skill") / "scripts" / "run.sh"
     assert "local-customized" in script.read_text()
-
-
-@then(parsers.parse("the exit code is {code:d}"))
-def check_exit_code(result_env: NapolnTestEnv, code: int):
-    assert result_env.result.exit_code == code, (
-        f"Expected exit {code}, got {result_env.result.exit_code}\n"
-        f"Output:\n{result_env.result.output}"
-    )

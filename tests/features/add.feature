@@ -45,4 +45,5 @@ Feature: Add a skill
     Given Claude Code is installed
     And a local skill exists at a test path
     When I run napoln add with --project --agents claude-code
-    Then the exit code is 0
+    Then the project manifest contains the skill
+    And the exit code is 0

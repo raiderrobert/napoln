@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import tomllib
+
 from pytest_bdd import given, parsers, scenario, then, when
 from typer.testing import CliRunner
 
@@ -40,16 +42,7 @@ def test_add_project():
 
 
 # ─── Given ────────────────────────────────────────────────────────────────────
-
-
-@given("Claude Code is installed", target_fixture="env")
-def claude_installed(napoln_env: NapolnTestEnv, monkeypatch):
-    (napoln_env.home / ".claude").mkdir(parents=True, exist_ok=True)
-    # Sandbox the working directory so --project doesn't write into the real repo.
-    project = napoln_env.tmp_path / "project"
-    project.mkdir()
-    monkeypatch.chdir(project)
-    return napoln_env
+# "Claude Code is installed" is in conftest.
 
 
 @given("a local skill exists at a test path")
@@ -103,7 +96,11 @@ def run_add_bare_name(env: NapolnTestEnv, name: str, cli_runner: CliRunner):
     "I run napoln add with --project --agents claude-code",
     target_fixture="result_env",
 )
-def run_add_project(env: NapolnTestEnv, cli_runner: CliRunner):
+def run_add_project(env: NapolnTestEnv, cli_runner: CliRunner, monkeypatch):
+    # Sandbox cwd so --project doesn't write into the real repo.
+    project = env.tmp_path / "project"
+    project.mkdir()
+    monkeypatch.chdir(project)
     env.result = cli_runner.invoke(
         app,
         ["add", str(env.skill_dir), "--project", "--agents", "claude-code"],
@@ -113,6 +110,7 @@ def run_add_project(env: NapolnTestEnv, cli_runner: CliRunner):
 
 
 # ─── Then ────────────────────────────────────────────────────────────────────
+# "the exit code is" and "the output contains" are in conftest.
 
 
 @then("the skill is stored in the content-addressed store")
@@ -130,20 +128,10 @@ def skill_placed(result_env: NapolnTestEnv):
 
 @then("the manifest contains the skill")
 def manifest_has_skill(result_env: NapolnTestEnv):
-    import tomllib
-
     mf_path = result_env.napoln_home / "manifest.toml"
     assert mf_path.exists()
     data = tomllib.loads(mf_path.read_text())
     assert "test-skill" in data.get("skills", {})
-
-
-@then(parsers.parse("the exit code is {code:d}"))
-def check_exit_code(result_env: NapolnTestEnv, code: int):
-    assert result_env.result.exit_code == code, (
-        f"Expected exit {code}, got {result_env.result.exit_code}\n"
-        f"Output:\n{result_env.result.output}"
-    )
 
 
 @then("no skills are stored")
@@ -162,6 +150,10 @@ def no_placements(result_env: NapolnTestEnv):
         assert len(placed) == 0
 
 
-@then(parsers.parse('the output contains "{text}"'))
-def output_contains(result_env: NapolnTestEnv, text: str):
-    assert text in result_env.result.output, f"Expected '{text}' in:\n{result_env.result.output}"
+@then("the project manifest contains the skill")
+def project_manifest_has_skill(result_env: NapolnTestEnv):
+    project = result_env.tmp_path / "project"
+    mf_path = project / ".napoln" / "manifest.toml"
+    assert mf_path.exists(), f"Expected project manifest at {mf_path}"
+    data = tomllib.loads(mf_path.read_text())
+    assert "test-skill" in data.get("skills", {})
