@@ -143,6 +143,31 @@ class TestAddSkillToManifest:
         assert "my-skill" in mf.skills
         assert mf.skills["my-skill"].version == "1.0.0"
 
+    def test_round_trips_namespaced_skill_name(self, tmp_path):
+        """Skill names containing '.' and ':' must survive a write/read round-trip.
+
+        TOML treats '.' as a key separator unless quoted; this test guards against
+        a regression where tomli_w (or a future replacement) stops quoting.
+        """
+        namespaced = "obra.superpowers:writing-skills"
+        mf = Manifest()
+        mf = add_skill_to_manifest(
+            mf,
+            namespaced,
+            "github.com/obra/superpowers",
+            "1.0.0",
+            "abc123",
+            {},
+        )
+
+        path = tmp_path / "manifest.toml"
+        write_manifest(mf, path)
+
+        reloaded = read_manifest(path)
+        assert namespaced in reloaded.skills
+        assert reloaded.skills[namespaced].source == "github.com/obra/superpowers"
+        assert reloaded.skills[namespaced].version == "1.0.0"
+
     def test_update_existing_skill(self):
         mf = Manifest()
         mf = add_skill_to_manifest(mf, "my-skill", "local/path", "1.0.0", "abc1234", {})
