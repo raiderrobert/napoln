@@ -22,6 +22,33 @@ from napoln.errors import MultipleSkillsError, ResolverError
 from napoln.prompts import SkillChoice, pick_skills
 
 
+def _namespace_skill_name(source_id: str, skill_name: str) -> str:
+    """Generate a namespaced skill name to avoid collisions.
+
+    Extracts owner/repo from source_id and creates a colon-separated namespace.
+    Example: github.com/obra/superpowers + writing-skills → obra.superpowers:writing-skills
+    """
+    # Extract owner and repo from source_id
+    # source_id formats:
+    #   - github.com/owner/repo (single skill)
+    #   - github.com/owner/repo/path (multi-skill)
+    #   - /path/to/local/dir
+    parts = source_id.split("/")
+    if len(parts) >= 2:
+        # Get last two significant parts (owner/repo or just owner for single-level)
+        # Filter out common hosts like github.com
+        filtered_parts = [p for p in parts if p not in ("", ".")]
+        if len(filtered_parts) >= 2:
+            owner = filtered_parts[-2]
+            repo = filtered_parts[-1]
+            return f"{owner}.{repo}:{skill_name}"
+        elif len(filtered_parts) == 1:
+            return f"{filtered_parts[0]}:{skill_name}"
+
+    # Fallback: use the last significant part of the path
+    return f"{source_id.replace('/', '.').replace(':', '')}:{skill_name}"
+
+
 def _ensure_initialized(napoln_home: Path) -> None:
     """Ensure napoln home directory structure exists."""
     napoln_home.mkdir(parents=True, exist_ok=True)
@@ -125,10 +152,21 @@ def _install_single_skill(
 
     version = resolved.version
 
-    # Check if already installed
+    # Collision detection: namespace skill name if same name exists from different source
+    collision_source: str | None = None
     if skill_name in mf.skills:
         existing = mf.skills[skill_name]
-        if existing.version == version and existing.store_hash:
+        if existing.source != resolved.source_id:
+            # Collision: same skill name from different source, namespace to avoid
+            collision_source = existing.source
+            skill_name = _namespace_skill_name(resolved.source_id, skill_name)
+            output.info(
+                f"Skill name collision detected. "
+                f"Installing as '{skill_name}' to avoid conflict with "
+                f"skill from {collision_source}."
+            )
+        elif existing.version == version and existing.store_hash:
+            # Same source, same version - already installed
             output.info(f"'{skill_name}' v{version} is already installed.")
             return 0
 
@@ -248,6 +286,7 @@ def _pick_from_multi_skill_repo(
                 version=version,
                 cleanup=False,
                 skill_name=choice.name,
+                parsed=parsed,
             )
         )
 

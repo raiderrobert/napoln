@@ -26,6 +26,7 @@ class ResolvedSource:
     version: str  # Resolved version
     cleanup: bool = False  # Whether to clean up skill_dir after use
     skill_name: str = ""  # Resolved skill name (from SKILL.md or directory name)
+    parsed: ParsedSource | None = None  # Typed source metadata for git sources
 
 
 # Git shorthand patterns
@@ -317,6 +318,7 @@ def resolve_git(
                     version=version,
                     cleanup=False,
                     skill_name=sd.name,
+                    parsed=parsed,
                 )
             )
         if len(results) == 1:
@@ -337,6 +339,7 @@ def resolve_git(
         version=version,
         cleanup=False,
         skill_name=skill_dir.name,
+        parsed=parsed,
     )
 
 
