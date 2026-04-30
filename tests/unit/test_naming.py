@@ -12,7 +12,13 @@ from napoln.core.resolver import ParsedSource, ResolvedSource
 
 def _git_resolved(host: str, owner: str, repo: str, path: str = "") -> ResolvedSource:
     parsed = ParsedSource(
-        source_type="git", host=host, owner=owner, repo=repo, path=path, version=None
+        source_type="git",
+        host=host,
+        owner=owner,
+        repo=repo,
+        path=path,
+        version="",
+        original=f"{host}/{owner}/{repo}" + (f"/{path}" if path else ""),
     )
     source_id = f"{host}/{owner}/{repo}" + (f"/{path}" if path else "")
     return ResolvedSource(
@@ -37,17 +43,21 @@ def _local_resolved(path: str) -> ResolvedSource:
     "resolved,skill_name,expected",
     [
         # git, single-skill repo
-        (_git_resolved("github.com", "obra", "superpowers"), "writing-skills",
-         "obra.superpowers:writing-skills"),
+        (
+            _git_resolved("github.com", "obra", "superpowers"),
+            "writing-skills",
+            "obra.superpowers:writing-skills",
+        ),
         # git, multi-skill repo — owner/repo namespace, NOT including subpath
-        (_git_resolved("github.com", "obra", "superpowers", "skills/writing"),
-         "writing-skills", "obra.superpowers:writing-skills"),
+        (
+            _git_resolved("github.com", "obra", "superpowers", "skills/writing"),
+            "writing-skills",
+            "obra.superpowers:writing-skills",
+        ),
         # local path — namespace from parent directory of the skill dir
-        (_local_resolved("/path/to/repo-b/shared-name"), "shared-name",
-         "repo-b:shared-name"),
+        (_local_resolved("/path/to/repo-b/shared-name"), "shared-name", "repo-b:shared-name"),
         # local path with single-segment parent
-        (_local_resolved("/repo-b/shared-name"), "shared-name",
-         "repo-b:shared-name"),
+        (_local_resolved("/repo-b/shared-name"), "shared-name", "repo-b:shared-name"),
     ],
 )
 def test_namespace_for(resolved, skill_name, expected):
