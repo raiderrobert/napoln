@@ -9,6 +9,7 @@ from napoln import output
 from napoln.core import agents as agents_mod
 from napoln.core import linker, manifest, store, validator
 from napoln.core.home import get_napoln_home
+from napoln.core.naming import namespace_for
 from napoln.core.resolver import (
     ParsedSource,
     ResolvedSource,
@@ -125,10 +126,20 @@ def _install_single_skill(
 
     version = resolved.version
 
-    # Check if already installed
+    # Collision detection: namespace skill name if same name exists from different source
     if skill_name in mf.skills:
         existing = mf.skills[skill_name]
-        if existing.version == version and existing.store_hash:
+        if existing.source != resolved.source_id:
+            # Collision: same skill name from different source, namespace to avoid
+            new_name = namespace_for(resolved, skill_name)
+            output.info(
+                f"Skill name collision detected. "
+                f"Installing as '{new_name}' to avoid conflict with "
+                f"skill from {existing.source}."
+            )
+            skill_name = new_name
+        elif existing.version == version and existing.store_hash:
+            # Same source, same version - already installed
             output.info(f"'{skill_name}' v{version} is already installed.")
             return 0
 
@@ -248,6 +259,7 @@ def _pick_from_multi_skill_repo(
                 version=version,
                 cleanup=False,
                 skill_name=choice.name,
+                parsed=parsed,
             )
         )
 
