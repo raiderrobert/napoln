@@ -42,10 +42,8 @@ def run_add(
     Returns:
         Exit code (0=success, 1=error, 2=warnings).
     """
-    import os
-
-    napoln_home = get_napoln_home()
-    home = Path(os.environ.get("HOME", Path.home()))
+    napoln_home: Path = get_napoln_home()
+    home: Path = Path.home()
 
     _ensure_initialized(napoln_home)
 
