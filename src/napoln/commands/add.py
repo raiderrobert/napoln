@@ -47,34 +47,32 @@ def run_add(
 
     _ensure_initialized(napoln_home)
 
-    # Parse source
     try:
         parsed: ParsedSource = parse_source(source)
     except ResolverError as e:
         output.error(str(e), cause=e.cause, fix=e.fix)
         return 1
 
-    # Registry not yet available
-    if parsed.source_type == SourceType.REGISTRY:
-        output.error(
-            "Registry sources are not yet available.",
-            fix=f"Use a git source instead:\n  napoln add github.com/owner/{source}",
-        )
-        return 1
-
-    # Resolve source
     resolved_result: ResolvedSource | list[ResolvedSource] | None
     try:
-        if parsed.source_type == SourceType.LOCAL:
-            resolved_result = resolve_local(parsed)
-        elif parsed.source_type == SourceType.GIT:
-            if version_constraint:
-                parsed.version = version_constraint
-            cache_dir: Path = napoln_home / "cache"
-            resolved_result = resolve_git(parsed, cache_dir, skill_filter=skill_filter)
-        else:
-            output.error(f"Unknown source type: {parsed.source_type}")
-            return 1
+        match parsed.source_type:
+            case SourceType.REGISTRY:
+                output.error(
+                    "Registry sources are not yet available.",
+                    fix=f"Use a git source instead:\n  napoln add github.com/owner/{source}",
+                )
+                return 1
+            case SourceType.LOCAL:
+                resolved_result = resolve_local(parsed)
+            case SourceType.GIT:
+                if version_constraint:
+                    parsed.version = version_constraint
+                resolved_result = resolve_git(
+                    parsed, napoln_home / "cache", skill_filter=skill_filter
+                )
+            case _:
+                output.error(f"Unknown source type: {parsed.source_type}")
+                return 1
     except MultipleSkillsError as e:
         # Interactive picker for multi-skill repos
         resolved_result = _pick_from_multi_skill_repo(
