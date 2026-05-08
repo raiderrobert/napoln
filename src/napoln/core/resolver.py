@@ -10,22 +10,36 @@ import shutil
 import subprocess
 import time
 from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 
 from napoln.core.store import store_skill
 from napoln.errors import MultipleSkillsError, ResolverError
 
 
+class SourceType(StrEnum):
+    """How a skill was identified — controls how it's resolved.
+
+    StrEnum so existing `== "git"` comparisons keep working for any caller we
+    haven't migrated yet, but type checkers see the closed set.
+    """
+
+    LOCAL = "local"
+    GIT = "git"
+    REGISTRY = "registry"
+
+
 @dataclass
 class ResolvedSource:
     """A resolved skill source."""
 
-    source_type: str  # "local", "git", "registry"
+    source_type: SourceType
     source_id: str  # Original source identifier
     skill_dir: Path  # Path to the skill directory (possibly in cache/temp)
     version: str  # Resolved version
     cleanup: bool = False  # Whether to clean up skill_dir after use
     skill_name: str = ""  # Resolved skill name (from SKILL.md or directory name)
+    parsed: ParsedSource | None = None  # Typed source metadata for git sources
 
 
 # Git shorthand patterns
@@ -61,7 +75,7 @@ def _should_fetch(sentinel: Path, now: float | None = None) -> bool:
 class ParsedSource:
     """Parsed source identifier."""
 
-    source_type: str  # "local", "git", "registry"
+    source_type: SourceType
     host: str  # e.g. "github.com"
     owner: str  # e.g. "owner"
     repo: str  # e.g. "repo"
@@ -91,7 +105,7 @@ def parse_source(source: str) -> ParsedSource:
     if source.startswith(("./", "../", "/")):
         local_path = Path(source).resolve()
         return ParsedSource(
-            source_type="local",
+            source_type=SourceType.LOCAL,
             host="",
             owner="",
             repo="",
@@ -105,7 +119,7 @@ def parse_source(source: str) -> ParsedSource:
     local_path = Path(source)
     if local_path.exists() and local_path.is_dir():
         return ParsedSource(
-            source_type="local",
+            source_type=SourceType.LOCAL,
             host="",
             owner="",
             repo="",
@@ -120,7 +134,7 @@ def parse_source(source: str) -> ParsedSource:
     if m:
         host, owner, repo, path, version = m.groups()
         return ParsedSource(
-            source_type="git",
+            source_type=SourceType.GIT,
             host=host,
             owner=owner,
             repo=repo,
@@ -137,7 +151,7 @@ def parse_source(source: str) -> ParsedSource:
         owner = parts[0] if len(parts) > 0 else ""
         repo = parts[1] if len(parts) > 1 else ""
         return ParsedSource(
-            source_type="git",
+            source_type=SourceType.GIT,
             host=host,
             owner=owner,
             repo=repo,
@@ -151,7 +165,7 @@ def parse_source(source: str) -> ParsedSource:
     if m:
         owner, repo, path, version = m.groups()
         return ParsedSource(
-            source_type="git",
+            source_type=SourceType.GIT,
             host="github.com",
             owner=owner,
             repo=repo,
@@ -163,7 +177,7 @@ def parse_source(source: str) -> ParsedSource:
     # Registry name (future)
     if re.match(r"^@?[a-z0-9-]+(/[a-z0-9-]+)?$", source):
         return ParsedSource(
-            source_type="registry",
+            source_type=SourceType.REGISTRY,
             host="",
             owner="",
             repo="",
@@ -212,7 +226,7 @@ def resolve_local(parsed: ParsedSource) -> ResolvedSource:
     version = _extract_version(skill_dir)
 
     return ResolvedSource(
-        source_type="local",
+        source_type=SourceType.LOCAL,
         source_id=str(skill_dir),
         skill_dir=skill_dir,
         version=version,
@@ -311,12 +325,13 @@ def resolve_git(
             sid = f"{source_id}/{rel}" if str(rel) != "." else source_id
             results.append(
                 ResolvedSource(
-                    source_type="git",
+                    source_type=SourceType.GIT,
                     source_id=sid,
                     skill_dir=sd,
                     version=version,
                     cleanup=False,
                     skill_name=sd.name,
+                    parsed=parsed,
                 )
             )
         if len(results) == 1:
@@ -331,12 +346,13 @@ def resolve_git(
         source_id += f"/{parsed.path}"
 
     return ResolvedSource(
-        source_type="git",
+        source_type=SourceType.GIT,
         source_id=source_id,
         skill_dir=skill_dir,
         version=version,
         cleanup=False,
         skill_name=skill_dir.name,
+        parsed=parsed,
     )
 
 
@@ -608,7 +624,7 @@ def normalize_source_for_match(source: str) -> str:
 
     # GitHub shorthand: owner/repo -> github.com/owner/repo
     parsed = parse_source(source)
-    if parsed.source_type == "git" and parsed.host:
+    if parsed.source_type == SourceType.GIT and parsed.host:
         return f"{parsed.host}/{parsed.owner}/{parsed.repo}"
 
     return source
@@ -634,9 +650,9 @@ def resolve_and_store(
     parsed = parse_source(source)
 
     resolved: ResolvedSource
-    if parsed.source_type == "local":
+    if parsed.source_type == SourceType.LOCAL:
         resolved = resolve_local(parsed)
-    elif parsed.source_type == "git":
+    elif parsed.source_type == SourceType.GIT:
         if version_constraint:
             parsed.version = version_constraint
         cache_dir = napoln_home / "cache"
