@@ -9,7 +9,7 @@ from napoln import output
 from napoln.core import agents as agents_mod
 from napoln.core import linker, manifest, store, validator
 from napoln.core.home import get_napoln_home
-from napoln.core.naming import namespace_for
+from napoln.core.naming import resolve_install_id
 from napoln.core.resolver import (
     ParsedSource,
     ResolvedSource,
@@ -125,34 +125,20 @@ def _install_single_skill(
         exit_code = 2
 
     version = resolved.version
-
-    # Distinguish the upstream name (from SKILL.md) from the install id (the
-    # manifest key and on-disk placement directory). They diverge only when a
-    # collision forces namespacing.
     upstream_name = skill_name
-    install_id = upstream_name
 
-    # Idempotency: if this exact source is already recorded under any install id
-    # for the same upstream name, reuse that id (handles the post-collision
-    # re-add case where the previous install lives under a namespaced key).
-    existing_install: manifest.SkillEntry | None = None
-    for existing_id, entry in mf.skills.items():
-        if entry.source == resolved.source_id and entry.name == upstream_name:
-            install_id = existing_id
-            existing_install = entry
-            break
+    resolution = resolve_install_id(mf, resolved, upstream_name)
+    install_id = resolution.install_id
 
-    if existing_install is not None:
-        if existing_install.version == version and existing_install.store_hash:
+    if resolution.existing is not None:
+        if resolution.existing.version == version and resolution.existing.store_hash:
             output.info(f"'{install_id}' v{version} is already installed.")
             return 0
-    elif upstream_name in mf.skills and mf.skills[upstream_name].source != resolved.source_id:
-        # Collision: another source already holds this upstream name. Namespace.
-        install_id = namespace_for(resolved, upstream_name)
+    elif resolution.collision_with is not None:
         output.info(
             f"Skill name collision detected. "
             f"Installing as '{install_id}' to avoid conflict with "
-            f"skill from {mf.skills[upstream_name].source}."
+            f"skill from {resolution.collision_with}."
         )
 
     if dry_run:
