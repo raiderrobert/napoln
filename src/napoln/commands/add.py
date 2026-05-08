@@ -126,45 +126,57 @@ def _install_single_skill(
 
     version = resolved.version
 
-    # Collision detection: namespace skill name if same name exists from different source
-    if skill_name in mf.skills:
-        existing = mf.skills[skill_name]
-        if existing.source != resolved.source_id:
-            # Collision: same skill name from different source, namespace to avoid
-            new_name = namespace_for(resolved, skill_name)
-            output.info(
-                f"Skill name collision detected. "
-                f"Installing as '{new_name}' to avoid conflict with "
-                f"skill from {existing.source}."
-            )
-            skill_name = new_name
-        elif existing.version == version and existing.store_hash:
-            # Same source, same version - already installed
-            output.info(f"'{skill_name}' v{version} is already installed.")
+    # Distinguish the upstream name (from SKILL.md) from the install id (the
+    # manifest key and on-disk placement directory). They diverge only when a
+    # collision forces namespacing.
+    upstream_name = skill_name
+    install_id = upstream_name
+
+    # Idempotency: if this exact source is already recorded under any install id
+    # for the same upstream name, reuse that id (handles the post-collision
+    # re-add case where the previous install lives under a namespaced key).
+    existing_install: manifest.SkillEntry | None = None
+    for existing_id, entry in mf.skills.items():
+        if entry.source == resolved.source_id and entry.name == upstream_name:
+            install_id = existing_id
+            existing_install = entry
+            break
+
+    if existing_install is not None:
+        if existing_install.version == version and existing_install.store_hash:
+            output.info(f"'{install_id}' v{version} is already installed.")
             return 0
+    elif upstream_name in mf.skills and mf.skills[upstream_name].source != resolved.source_id:
+        # Collision: another source already holds this upstream name. Namespace.
+        install_id = namespace_for(resolved, upstream_name)
+        output.info(
+            f"Skill name collision detected. "
+            f"Installing as '{install_id}' to avoid conflict with "
+            f"skill from {mf.skills[upstream_name].source}."
+        )
 
     if dry_run:
-        output.would(f"store skill '{skill_name}' v{version}")
+        output.would(f"store skill '{install_id}' v{version}")
         placements_map = agents_mod.deduplicate_placements(
-            agent_configs, skill_name, home, scope, project_root
+            agent_configs, install_id, home, scope, project_root
         )
         for target_path, path_agents in placements_map.items():
             agent_names = ", ".join(a.display_name for a in path_agents)
-            output.would(f"place '{skill_name}' in {target_path} ({agent_names})")
+            output.would(f"place '{install_id}' in {target_path} ({agent_names})")
         return exit_code
 
     # Store
     try:
         store_path, content_hash = store.store_skill(
-            resolved.skill_dir, skill_name, version, napoln_home
+            resolved.skill_dir, install_id, version, napoln_home
         )
     except Exception as e:
-        output.error(f"Failed to store skill '{skill_name}': {e}")
+        output.error(f"Failed to store skill '{install_id}': {e}")
         return 1
 
     # Place
     placements_map = agents_mod.deduplicate_placements(
-        agent_configs, skill_name, home, scope, project_root
+        agent_configs, install_id, home, scope, project_root
     )
     agent_placements: dict[str, manifest.AgentPlacement] = {}
 
@@ -174,7 +186,7 @@ def _install_single_skill(
             linker.write_provenance(
                 target_path, resolved.source_id, version, content_hash, link_mode
             )
-            output.success(f"Placed '{skill_name}' in {target_path} ({link_mode})")
+            output.success(f"Placed '{install_id}' in {target_path} ({link_mode})")
             for agent in path_agents:
                 agent_placements[agent.id] = manifest.AgentPlacement(
                     path=str(target_path),
@@ -182,15 +194,21 @@ def _install_single_skill(
                     scope=scope,
                 )
         except Exception as e:
-            output.error(f"Failed to place '{skill_name}' for {path_agents[0].display_name}: {e}")
+            output.error(f"Failed to place '{install_id}' for {path_agents[0].display_name}: {e}")
             return 1
 
     # Update manifest
     manifest.add_skill_to_manifest(
-        mf, skill_name, resolved.source_id, version, content_hash, agent_placements
+        mf,
+        install_id,
+        resolved.source_id,
+        version,
+        content_hash,
+        agent_placements,
+        name=upstream_name,
     )
     manifest.write_manifest(mf, manifest_path)
-    output.success(f"Added '{skill_name}' v{version}")
+    output.success(f"Added '{install_id}' v{version}")
 
     return exit_code
 

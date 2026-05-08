@@ -141,6 +141,70 @@ class TestAddCommand:
         assert result.exit_code == 0
         assert "already installed" in result.output
 
+    def test_add_collision_namespaced(self, runner, isolated_env, tmp_path):
+        """Test that a colliding skill name is automatically namespaced."""
+        home, napoln_home, env = isolated_env
+
+        # Create two local skills with the same name but different sources
+        skill_a = tmp_path / "repo-a" / "shared-name"
+        skill_b = tmp_path / "repo-b" / "shared-name"
+        skill_a.mkdir(parents=True)
+        skill_b.mkdir(parents=True)
+        (skill_a / "SKILL.md").write_text(
+            "---\nname: shared-name\ndescription: Skill from repo-a\n"
+            'metadata:\n  version: "1.0.0"\n---\n\n# Skill A\n'
+        )
+        (skill_b / "SKILL.md").write_text(
+            "---\nname: shared-name\ndescription: Skill from repo-b\n"
+            'metadata:\n  version: "1.0.0"\n---\n\n# Skill B\n'
+        )
+
+        # Install first skill
+        result_a = runner.invoke(app, ["add", str(skill_a), "--agents", "claude-code"], env=env)
+        assert result_a.exit_code == 0
+        assert (home / ".claude" / "skills" / "shared-name" / "SKILL.md").exists()
+
+        # Install second skill with same name - should be namespaced
+        result_b = runner.invoke(app, ["add", str(skill_b), "--agents", "claude-code"], env=env)
+        assert result_b.exit_code == 0
+        assert "collision detected" in result_b.output.lower()
+        # The namespaced skill should be placed
+        assert (home / ".claude" / "skills" / "repo-b:shared-name" / "SKILL.md").exists()
+
+    def test_add_collision_namespaced_is_idempotent(self, runner, isolated_env, tmp_path):
+        """Re-installing the same colliding source twice should not double-namespace."""
+        home, napoln_home, env = isolated_env
+
+        skill_a = tmp_path / "repo-a" / "shared-name"
+        skill_b = tmp_path / "repo-b" / "shared-name"
+        for d, label in ((skill_a, "A"), (skill_b, "B")):
+            d.mkdir(parents=True)
+            (d / "SKILL.md").write_text(
+                f"---\nname: shared-name\ndescription: Skill from repo {label}\n"
+                'metadata:\n  version: "1.0.0"\n---\n\n# Skill\n'
+            )
+
+        # First install of A under canonical name
+        assert (
+            runner.invoke(app, ["add", str(skill_a), "--agents", "claude-code"], env=env).exit_code
+            == 0
+        )
+
+        # First install of B -> namespaced
+        assert (
+            runner.invoke(app, ["add", str(skill_b), "--agents", "claude-code"], env=env).exit_code
+            == 0
+        )
+
+        # Re-install of B -> should hit the "already installed" branch under the
+        # namespaced key, NOT trigger another namespacing pass.
+        result = runner.invoke(app, ["add", str(skill_b), "--agents", "claude-code"], env=env)
+        assert result.exit_code == 0
+        assert "already installed" in result.output.lower()
+        # Crucially: no double-namespacing like 'repo-b:repo-b:shared-name'
+        assert "repo-b:repo-b:" not in result.output
+        assert not (home / ".claude" / "skills" / "repo-b:repo-b:shared-name").exists()
+
     def test_add_registry_not_available(self, runner, isolated_env):
         _, _, env = isolated_env
         result = runner.invoke(app, ["add", "my-skill"], env=env)
