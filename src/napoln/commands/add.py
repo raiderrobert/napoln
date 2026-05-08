@@ -13,6 +13,7 @@ from napoln.core.naming import resolve_install_id
 from napoln.core.resolver import (
     ParsedSource,
     ResolvedSource,
+    SourceType,
     _extract_description,
     _resolve_version,
     parse_source,
@@ -50,13 +51,13 @@ def run_add(
 
     # Parse source
     try:
-        parsed = parse_source(source)
+        parsed: ParsedSource = parse_source(source)
     except ResolverError as e:
         output.error(str(e), cause=e.cause, fix=e.fix)
         return 1
 
     # Registry not yet available
-    if parsed.source_type == "registry":
+    if parsed.source_type == SourceType.REGISTRY:
         output.error(
             "Registry sources are not yet available.",
             fix=f"Use a git source instead:\n  napoln add github.com/owner/{source}",
@@ -64,13 +65,14 @@ def run_add(
         return 1
 
     # Resolve source
+    resolved_result: ResolvedSource | list[ResolvedSource] | None
     try:
-        if parsed.source_type == "local":
+        if parsed.source_type == SourceType.LOCAL:
             resolved_result = resolve_local(parsed)
-        elif parsed.source_type == "git":
+        elif parsed.source_type == SourceType.GIT:
             if version_constraint:
                 parsed.version = version_constraint
-            cache_dir = napoln_home / "cache"
+            cache_dir: Path = napoln_home / "cache"
             resolved_result = resolve_git(parsed, cache_dir, skill_filter=skill_filter)
         else:
             output.error(f"Unknown source type: {parsed.source_type}")
@@ -88,13 +90,15 @@ def run_add(
 
     # Normalize to a list. ty's isinstance narrowing on a `T | list[T]` union
     # leaves a quirky intersection, so cast through after the runtime check.
+    resolved_list: list[ResolvedSource]
     if isinstance(resolved_result, list):
-        resolved_list: list[ResolvedSource] = cast(list[ResolvedSource], resolved_result)
+        resolved_list = cast(list[ResolvedSource], resolved_result)
     else:
         resolved_list = [resolved_result]
 
     # Detect agents — prefer configured defaults over auto-detection
-    default_agent_ids = agents_mod.load_default_agent_ids(napoln_home)
+    default_agent_ids: list[str] = agents_mod.load_default_agent_ids(napoln_home)
+    agent_configs: list[agents_mod.AgentConfig]
     try:
         agent_configs = agents_mod.resolve_agents(
             agent_ids, home, project_root, scope, default_agent_ids=default_agent_ids
@@ -125,8 +129,8 @@ def run_add(
     _install_bootstrap_skill(napoln_home, home, agent_configs, scope, project_root, dry_run)
 
     # Load manifest once
-    manifest_path = manifest.get_manifest_path(napoln_home, scope, project_root)
-    mf = manifest.read_manifest(manifest_path)
+    manifest_path: Path = manifest.get_manifest_path(napoln_home, scope, project_root)
+    mf: manifest.Manifest = manifest.read_manifest(manifest_path)
 
     # Show summary when installing multiple skills
     if len(resolved_list) > 1 and not dry_run:
@@ -267,11 +271,11 @@ def _install_single_skill(
             output.warning(warn.message)
         exit_code = 2
 
-    version = resolved.version
-    upstream_name = skill_name
+    version: str = resolved.version
+    upstream_name: str = skill_name
 
     resolution = resolve_install_id(mf, resolved, upstream_name)
-    install_id = resolution.install_id
+    install_id: str = resolution.install_id
 
     if resolution.existing is not None:
         if resolution.existing.version == version and resolution.existing.store_hash:
@@ -400,7 +404,7 @@ def _pick_from_multi_skill_repo(
         sid = f"{source_id}/{rel}" if str(rel) != "." else source_id
         results.append(
             ResolvedSource(
-                source_type="git",
+                source_type=SourceType.GIT,
                 source_id=sid,
                 skill_dir=choice.path,
                 version=version,

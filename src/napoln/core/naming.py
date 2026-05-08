@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from napoln.core.manifest import Manifest, SkillEntry
-from napoln.core.resolver import ResolvedSource
+from napoln.core.resolver import ResolvedSource, SourceType
 
 
 @dataclass(frozen=True)
@@ -62,10 +62,10 @@ def namespace_for(resolved: ResolvedSource, skill_name: str) -> str:
         git    -> "<owner>.<repo>:<skill_name>"
         local  -> "<parent-dir-name>:<skill_name>"
     """
-    if resolved.source_type == "git" and resolved.parsed is not None:
+    if resolved.source_type == SourceType.GIT and resolved.parsed is not None:
         return f"{resolved.parsed.owner}.{resolved.parsed.repo}:{skill_name}"
 
-    if resolved.source_type == "local":
+    if resolved.source_type == SourceType.LOCAL:
         parent = Path(resolved.source_id).parent.name
         if parent:
             return f"{parent}:{skill_name}"
