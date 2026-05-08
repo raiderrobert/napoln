@@ -144,29 +144,67 @@ class TestAddSkillToManifest:
         assert mf.skills["my-skill"].version == "1.0.0"
 
     def test_round_trips_namespaced_skill_name(self, tmp_path):
-        """Skill names containing '.' and ':' must survive a write/read round-trip.
+        """Namespaced install ids round-trip and preserve the upstream name.
 
-        TOML treats '.' as a key separator unless quoted; this test guards against
-        a regression where tomli_w (or a future replacement) stops quoting.
+        TOML treats '.' as a key separator unless quoted; this test also guards
+        against a regression where tomli_w (or a future replacement) stops
+        quoting. The `name` field carries the upstream identity separately
+        from the install id used as the dict key.
         """
-        namespaced = "obra.superpowers:writing-skills"
+        install_id = "obra.superpowers:writing-skills"
         mf = Manifest()
         mf = add_skill_to_manifest(
             mf,
-            namespaced,
+            install_id,
             "github.com/obra/superpowers",
             "1.0.0",
             "abc123",
             {},
+            name="writing-skills",
         )
 
         path = tmp_path / "manifest.toml"
         write_manifest(mf, path)
 
         reloaded = read_manifest(path)
-        assert namespaced in reloaded.skills
-        assert reloaded.skills[namespaced].source == "github.com/obra/superpowers"
-        assert reloaded.skills[namespaced].version == "1.0.0"
+        assert install_id in reloaded.skills
+        entry = reloaded.skills[install_id]
+        assert entry.source == "github.com/obra/superpowers"
+        assert entry.version == "1.0.0"
+        assert entry.name == "writing-skills"
+
+    def test_back_fills_name_from_dict_key_for_legacy_manifests(self, tmp_path):
+        """A manifest written before the `name` field existed must still read
+        cleanly: the upstream name is back-filled from the dict key."""
+        path = tmp_path / "manifest.toml"
+        path.write_text(
+            "[napoln]\nschema = 1\n\n"
+            "[skills.my-skill]\n"
+            'source = "github.com/owner/repo"\n'
+            'version = "1.0.0"\n'
+            'store_hash = "abc1234"\n'
+            'installed = "2026-04-14T10:00:00Z"\n'
+            'updated = "2026-04-14T10:00:00Z"\n',
+            encoding="utf-8",
+        )
+        mf = read_manifest(path)
+        assert mf.skills["my-skill"].name == "my-skill"
+
+    def test_does_not_emit_name_field_when_it_matches_install_id(self, tmp_path):
+        """For non-colliding installs, omit the redundant `name` field from TOML."""
+        path = tmp_path / "manifest.toml"
+        mf = Manifest()
+        mf = add_skill_to_manifest(
+            mf,
+            "my-skill",
+            "github.com/owner/repo",
+            "1.0.0",
+            "abc1234",
+            {},
+            name="my-skill",
+        )
+        write_manifest(mf, path)
+        assert "\nname = " not in path.read_text(encoding="utf-8")
 
     def test_update_existing_skill(self):
         mf = Manifest()
