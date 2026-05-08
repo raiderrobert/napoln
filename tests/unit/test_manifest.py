@@ -19,7 +19,7 @@ class TestReadWriteManifest:
     def test_empty_manifest(self, tmp_path):
         """Reading a non-existent manifest returns empty Manifest."""
         mf = read_manifest(tmp_path / "manifest.toml")
-        assert mf.schema == 1
+        assert mf.schema_version == 1
         assert mf.skills == {}
 
     def test_round_trip(self, tmp_path):
@@ -45,7 +45,7 @@ class TestReadWriteManifest:
         write_manifest(mf, path)
         loaded = read_manifest(path)
 
-        assert loaded.schema == 1
+        assert loaded.schema_version == 1
         assert "my-skill" in loaded.skills
         entry = loaded.skills["my-skill"]
         assert entry.source == "github.com/owner/repo"
@@ -137,7 +137,11 @@ class TestAddSkillToManifest:
             "github.com/owner/repo",
             "1.0.0",
             "abc1234",
-            {"claude-code": AgentPlacement("~/.claude/skills/my-skill", "clone", "global")},
+            {
+                "claude-code": AgentPlacement(
+                    path="~/.claude/skills/my-skill", link_mode="clone", scope="global"
+                )
+            },
         )
 
         assert "my-skill" in mf.skills
@@ -240,8 +244,8 @@ class TestRemoveSkillFromManifest:
             installed="",
             updated="",
             agents={
-                "claude-code": AgentPlacement("path1", "clone", "global"),
-                "pi": AgentPlacement("path2", "clone", "global"),
+                "claude-code": AgentPlacement(path="path1", link_mode="clone", scope="global"),
+                "pi": AgentPlacement(path="path2", link_mode="clone", scope="global"),
             },
         )
 
@@ -258,7 +262,7 @@ class TestRemoveSkillFromManifest:
             store_hash="abc",
             installed="",
             updated="",
-            agents={"claude-code": AgentPlacement("path1", "clone", "global")},
+            agents={"claude-code": AgentPlacement(path="path1", link_mode="clone", scope="global")},
         )
 
         mf = remove_skill_from_manifest(mf, "my-skill", ["claude-code"])

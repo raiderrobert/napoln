@@ -8,11 +8,11 @@ from __future__ import annotations
 
 import os
 import tomllib
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
 import tomli_w
+from pydantic import BaseModel, Field
 
 from napoln.errors import ManifestError
 
@@ -20,8 +20,7 @@ from napoln.errors import ManifestError
 SCHEMA_VERSION = 1
 
 
-@dataclass
-class AgentPlacement:
+class AgentPlacement(BaseModel):
     """A skill placement for a specific agent."""
 
     path: str
@@ -29,8 +28,7 @@ class AgentPlacement:
     scope: str  # "global" or "project"
 
 
-@dataclass
-class SkillEntry:
+class SkillEntry(BaseModel):
     """A skill entry in the manifest.
 
     The dict key in `Manifest.skills` is the *install id* — a unique,
@@ -48,15 +46,16 @@ class SkillEntry:
     installed: str  # ISO-8601
     updated: str  # ISO-8601
     name: str = ""  # upstream name; back-filled from dict key when absent
-    agents: dict[str, AgentPlacement] = field(default_factory=dict)
+    agents: dict[str, AgentPlacement] = Field(default_factory=dict)
 
 
-@dataclass
-class Manifest:
+class Manifest(BaseModel):
     """The complete manifest structure."""
 
-    schema: int = SCHEMA_VERSION
-    skills: dict[str, SkillEntry] = field(default_factory=dict)
+    # `schema` is reserved on pydantic's BaseModel; the TOML key remains
+    # `schema` (constructed by hand in write_manifest), the attribute is renamed.
+    schema_version: int = SCHEMA_VERSION
+    skills: dict[str, SkillEntry] = Field(default_factory=dict)
 
 
 def _now_iso() -> str:
@@ -89,7 +88,7 @@ def read_manifest(path: Path) -> Manifest:
         )
 
     manifest = Manifest()
-    manifest.schema = data.get("napoln", {}).get("schema", SCHEMA_VERSION)
+    manifest.schema_version = data.get("napoln", {}).get("schema", SCHEMA_VERSION)
 
     for name, skill_data in data.get("skills", {}).items():
         agents = {}
@@ -125,7 +124,7 @@ def write_manifest(manifest: Manifest, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
 
     data: dict = {
-        "napoln": {"schema": manifest.schema},
+        "napoln": {"schema": manifest.schema_version},
         "skills": {},
     }
 
