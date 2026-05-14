@@ -8,7 +8,13 @@ from typing import cast
 from napoln import output
 from napoln.core import linker, manifest, merger, store
 from napoln.core.home import get_napoln_home
-from napoln.core.resolver import ResolvedSource, parse_source, resolve_git, resolve_local
+from napoln.core.resolver import (
+    ResolvedSource,
+    SourceType,
+    parse_source,
+    resolve_git,
+    resolve_local,
+)
 from napoln.errors import ResolverError
 
 
@@ -95,9 +101,9 @@ def _upgrade_skill(
             parsed.version = version_constraint
 
         resolved: ResolvedSource
-        if parsed.source_type == "local":
+        if parsed.source_type == SourceType.LOCAL:
             resolved = resolve_local(parsed)
-        elif parsed.source_type == "git":
+        elif parsed.source_type == SourceType.GIT:
             cache_dir = napoln_home / "cache"
             result = resolve_git(parsed, cache_dir)
             # resolve_git can return a list for multi-skill repos;

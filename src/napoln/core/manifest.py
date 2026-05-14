@@ -8,11 +8,11 @@ from __future__ import annotations
 
 import os
 import tomllib
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
 import tomli_w
+from pydantic import BaseModel, Field
 
 from napoln.errors import ManifestError
 
@@ -20,8 +20,7 @@ from napoln.errors import ManifestError
 SCHEMA_VERSION = 1
 
 
-@dataclass
-class AgentPlacement:
+class AgentPlacement(BaseModel):
     """A skill placement for a specific agent."""
 
     path: str
@@ -29,24 +28,34 @@ class AgentPlacement:
     scope: str  # "global" or "project"
 
 
-@dataclass
-class SkillEntry:
-    """A skill entry in the manifest."""
+class SkillEntry(BaseModel):
+    """A skill entry in the manifest.
+
+    The dict key in `Manifest.skills` is the *install id* — a unique,
+    filesystem-safe string used for the placement directory and as the
+    manifest's primary key. For non-colliding installs it equals `name`;
+    for collisions it is namespaced (e.g. `obra.superpowers:writing-skills`).
+
+    `name` is the upstream skill name from SKILL.md frontmatter. Two entries
+    can share the same `name` if they came from different sources.
+    """
 
     source: str
     version: str
     store_hash: str
     installed: str  # ISO-8601
     updated: str  # ISO-8601
-    agents: dict[str, AgentPlacement] = field(default_factory=dict)
+    name: str = ""  # upstream name; back-filled from dict key when absent
+    agents: dict[str, AgentPlacement] = Field(default_factory=dict)
 
 
-@dataclass
-class Manifest:
+class Manifest(BaseModel):
     """The complete manifest structure."""
 
-    schema: int = SCHEMA_VERSION
-    skills: dict[str, SkillEntry] = field(default_factory=dict)
+    # `schema` is reserved on pydantic's BaseModel; the TOML key remains
+    # `schema` (constructed by hand in write_manifest), the attribute is renamed.
+    schema_version: int = SCHEMA_VERSION
+    skills: dict[str, SkillEntry] = Field(default_factory=dict)
 
 
 def _now_iso() -> str:
@@ -79,7 +88,7 @@ def read_manifest(path: Path) -> Manifest:
         )
 
     manifest = Manifest()
-    manifest.schema = data.get("napoln", {}).get("schema", SCHEMA_VERSION)
+    manifest.schema_version = data.get("napoln", {}).get("schema", SCHEMA_VERSION)
 
     for name, skill_data in data.get("skills", {}).items():
         agents = {}
@@ -96,6 +105,9 @@ def read_manifest(path: Path) -> Manifest:
             store_hash=skill_data.get("store_hash", ""),
             installed=skill_data.get("installed", ""),
             updated=skill_data.get("updated", ""),
+            # Back-fill upstream name from the dict key for manifests written
+            # before the `name` field existed. Correct for non-collision case.
+            name=skill_data.get("name", name),
             agents=agents,
         )
 
@@ -112,7 +124,7 @@ def write_manifest(manifest: Manifest, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
 
     data: dict = {
-        "napoln": {"schema": manifest.schema},
+        "napoln": {"schema": manifest.schema_version},
         "skills": {},
     }
 
@@ -124,6 +136,10 @@ def write_manifest(manifest: Manifest, path: Path) -> None:
             "installed": entry.installed,
             "updated": entry.updated,
         }
+        # Only emit `name` when it diverges from the install id (i.e. for a
+        # namespaced collision). Keeps non-colliding manifests free of noise.
+        if entry.name and entry.name != name:
+            skill_data["name"] = entry.name
 
         if entry.agents:
             agents_data: dict = {}
@@ -153,41 +169,51 @@ def write_manifest(manifest: Manifest, path: Path) -> None:
 
 def add_skill_to_manifest(
     manifest: Manifest,
-    skill_name: str,
+    install_id: str,
     source: str,
     version: str,
     store_hash: str,
     agents: dict[str, AgentPlacement],
+    name: str | None = None,
 ) -> Manifest:
     """Add or update a skill in the manifest.
 
     Args:
         manifest: The current manifest.
-        skill_name: Name of the skill.
+        install_id: Unique key for this install (placement-safe; equals `name`
+            unless a collision forced namespacing).
         source: Source identifier (git URL, local path).
         version: Version string.
         store_hash: Content hash prefix.
         agents: Dict of agent_id -> AgentPlacement.
+        name: Upstream skill name from SKILL.md frontmatter. Defaults to
+            `install_id` if omitted (back-compat for callers that don't yet
+            distinguish the two).
 
     Returns:
         Updated manifest.
     """
     now = _now_iso()
+    upstream = name if name is not None else install_id
 
-    if skill_name in manifest.skills:
-        entry = manifest.skills[skill_name]
+    if install_id in manifest.skills:
+        entry = manifest.skills[install_id]
         entry.source = source
         entry.version = version
         entry.store_hash = store_hash
         entry.updated = now
         entry.agents.update(agents)
+        # Don't overwrite an existing upstream name on update.
+        if not entry.name:
+            entry.name = upstream
     else:
-        manifest.skills[skill_name] = SkillEntry(
+        manifest.skills[install_id] = SkillEntry(
             source=source,
             version=version,
             store_hash=store_hash,
             installed=now,
             updated=now,
+            name=upstream,
             agents=agents,
         )
 

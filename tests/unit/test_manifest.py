@@ -19,7 +19,7 @@ class TestReadWriteManifest:
     def test_empty_manifest(self, tmp_path):
         """Reading a non-existent manifest returns empty Manifest."""
         mf = read_manifest(tmp_path / "manifest.toml")
-        assert mf.schema == 1
+        assert mf.schema_version == 1
         assert mf.skills == {}
 
     def test_round_trip(self, tmp_path):
@@ -45,7 +45,7 @@ class TestReadWriteManifest:
         write_manifest(mf, path)
         loaded = read_manifest(path)
 
-        assert loaded.schema == 1
+        assert loaded.schema_version == 1
         assert "my-skill" in loaded.skills
         entry = loaded.skills["my-skill"]
         assert entry.source == "github.com/owner/repo"
@@ -137,11 +137,78 @@ class TestAddSkillToManifest:
             "github.com/owner/repo",
             "1.0.0",
             "abc1234",
-            {"claude-code": AgentPlacement("~/.claude/skills/my-skill", "clone", "global")},
+            {
+                "claude-code": AgentPlacement(
+                    path="~/.claude/skills/my-skill", link_mode="clone", scope="global"
+                )
+            },
         )
 
         assert "my-skill" in mf.skills
         assert mf.skills["my-skill"].version == "1.0.0"
+
+    def test_round_trips_namespaced_skill_name(self, tmp_path):
+        """Namespaced install ids round-trip and preserve the upstream name.
+
+        TOML treats '.' as a key separator unless quoted; this test also guards
+        against a regression where tomli_w (or a future replacement) stops
+        quoting. The `name` field carries the upstream identity separately
+        from the install id used as the dict key.
+        """
+        install_id = "obra.superpowers:writing-skills"
+        mf = Manifest()
+        mf = add_skill_to_manifest(
+            mf,
+            install_id,
+            "github.com/obra/superpowers",
+            "1.0.0",
+            "abc123",
+            {},
+            name="writing-skills",
+        )
+
+        path = tmp_path / "manifest.toml"
+        write_manifest(mf, path)
+
+        reloaded = read_manifest(path)
+        assert install_id in reloaded.skills
+        entry = reloaded.skills[install_id]
+        assert entry.source == "github.com/obra/superpowers"
+        assert entry.version == "1.0.0"
+        assert entry.name == "writing-skills"
+
+    def test_back_fills_name_from_dict_key_for_legacy_manifests(self, tmp_path):
+        """A manifest written before the `name` field existed must still read
+        cleanly: the upstream name is back-filled from the dict key."""
+        path = tmp_path / "manifest.toml"
+        path.write_text(
+            "[napoln]\nschema = 1\n\n"
+            "[skills.my-skill]\n"
+            'source = "github.com/owner/repo"\n'
+            'version = "1.0.0"\n'
+            'store_hash = "abc1234"\n'
+            'installed = "2026-04-14T10:00:00Z"\n'
+            'updated = "2026-04-14T10:00:00Z"\n',
+            encoding="utf-8",
+        )
+        mf = read_manifest(path)
+        assert mf.skills["my-skill"].name == "my-skill"
+
+    def test_does_not_emit_name_field_when_it_matches_install_id(self, tmp_path):
+        """For non-colliding installs, omit the redundant `name` field from TOML."""
+        path = tmp_path / "manifest.toml"
+        mf = Manifest()
+        mf = add_skill_to_manifest(
+            mf,
+            "my-skill",
+            "github.com/owner/repo",
+            "1.0.0",
+            "abc1234",
+            {},
+            name="my-skill",
+        )
+        write_manifest(mf, path)
+        assert "\nname = " not in path.read_text(encoding="utf-8")
 
     def test_update_existing_skill(self):
         mf = Manifest()
@@ -177,8 +244,8 @@ class TestRemoveSkillFromManifest:
             installed="",
             updated="",
             agents={
-                "claude-code": AgentPlacement("path1", "clone", "global"),
-                "pi": AgentPlacement("path2", "clone", "global"),
+                "claude-code": AgentPlacement(path="path1", link_mode="clone", scope="global"),
+                "pi": AgentPlacement(path="path2", link_mode="clone", scope="global"),
             },
         )
 
@@ -195,7 +262,7 @@ class TestRemoveSkillFromManifest:
             store_hash="abc",
             installed="",
             updated="",
-            agents={"claude-code": AgentPlacement("path1", "clone", "global")},
+            agents={"claude-code": AgentPlacement(path="path1", link_mode="clone", scope="global")},
         )
 
         mf = remove_skill_from_manifest(mf, "my-skill", ["claude-code"])

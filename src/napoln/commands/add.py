@@ -9,9 +9,11 @@ from napoln import output
 from napoln.core import agents as agents_mod
 from napoln.core import linker, manifest, store, validator
 from napoln.core.home import get_napoln_home
+from napoln.core.naming import resolve_install_id
 from napoln.core.resolver import (
     ParsedSource,
     ResolvedSource,
+    SourceType,
     _extract_description,
     _resolve_version,
     parse_source,
@@ -20,6 +22,148 @@ from napoln.core.resolver import (
 )
 from napoln.errors import MultipleSkillsError, ResolverError
 from napoln.prompts import SkillChoice, pick_skills
+
+
+def run_add(
+    source: str,
+    agent_ids: list[str] | None = None,
+    version_constraint: str | None = None,
+    scope: str = "global",
+    project_root: Path | None = None,
+    skill_name_override: str | None = None,
+    skill_filter: str | None = None,
+    dry_run: bool = False,
+) -> int:
+    """Execute the add command.
+
+    Args:
+        skill_filter: '--skill' value. '*' = all, 'name' = specific, None = single/error.
+
+    Returns:
+        Exit code (0=success, 1=error, 2=warnings).
+    """
+    napoln_home: Path = get_napoln_home()
+    home: Path = Path.home()
+
+    _ensure_initialized(napoln_home)
+
+    try:
+        parsed: ParsedSource = parse_source(source)
+    except ResolverError as e:
+        output.error(str(e), cause=e.cause, fix=e.fix)
+        return 1
+
+    resolved_result: ResolvedSource | list[ResolvedSource] | None
+    try:
+        match parsed.source_type:
+            case SourceType.REGISTRY:
+                output.error(
+                    "Registry sources are not yet available.",
+                    fix=f"Use a git source instead:\n  napoln add github.com/owner/{source}",
+                )
+                return 1
+            case SourceType.LOCAL:
+                resolved_result = resolve_local(parsed)
+            case SourceType.GIT:
+                if version_constraint:
+                    parsed.version = version_constraint
+                resolved_result = resolve_git(
+                    parsed, napoln_home / "cache", skill_filter=skill_filter
+                )
+            case _:
+                output.error(f"Unknown source type: {parsed.source_type}")
+                return 1
+    except MultipleSkillsError as e:
+        # Interactive picker for multi-skill repos
+        resolved_result = _pick_from_multi_skill_repo(
+            e, parsed, source, version_constraint, napoln_home
+        )
+        if resolved_result is None:
+            return 1
+    except ResolverError as e:
+        output.error(str(e), cause=e.cause, fix=e.fix)
+        return 1
+
+    # Normalize to a list. ty's isinstance narrowing on a `T | list[T]` union
+    # leaves a quirky intersection, so cast through after the runtime check.
+    resolved_list: list[ResolvedSource]
+    if isinstance(resolved_result, list):
+        resolved_list = cast(list[ResolvedSource], resolved_result)
+    else:
+        resolved_list = [resolved_result]
+
+    # Detect agents — prefer configured defaults over auto-detection
+    default_agent_ids: list[str] = agents_mod.load_default_agent_ids(napoln_home)
+    agent_configs: list[agents_mod.AgentConfig]
+    try:
+        agent_configs = agents_mod.resolve_agents(
+            agent_ids, home, project_root, scope, default_agent_ids=default_agent_ids
+        )
+    except ValueError as e:
+        output.error(str(e))
+        return 1
+
+    if not agent_configs:
+        output.error(
+            "No agents detected.",
+            fix="Specify agents with --agents, e.g.:\n  napoln add <source> --agents claude-code,pi",
+        )
+        return 1
+
+    # If the user has multiple agents installed but never configured defaults,
+    # nudge them toward `napoln setup` so they don't keep spray-installing.
+    if agent_ids is None and not default_agent_ids and scope == "global" and len(agent_configs) > 1:
+        output.info(
+            f"Installing to all {len(agent_configs)} detected agents. "
+            "Run `napoln setup` to choose defaults."
+        )
+
+    if dry_run:
+        output.dry_run_header()
+
+    # Install bootstrap skill on first run
+    _install_bootstrap_skill(napoln_home, home, agent_configs, scope, project_root, dry_run)
+
+    # Load manifest once
+    manifest_path: Path = manifest.get_manifest_path(napoln_home, scope, project_root)
+    mf: manifest.Manifest = manifest.read_manifest(manifest_path)
+
+    # Show summary when installing multiple skills
+    if len(resolved_list) > 1 and not dry_run:
+        skill_names = [r.skill_name or r.skill_dir.name for r in resolved_list]
+        agent_names = [a.display_name for a in agent_configs]
+        output.install_summary(skill_names, agent_names, scope)
+
+    # Install each skill
+    worst_exit = 0
+    installed_count = 0
+    for resolved in resolved_list:
+        skill_name = skill_name_override or resolved.skill_name or resolved.skill_dir.name
+        code = _install_single_skill(
+            resolved,
+            skill_name,
+            agent_configs,
+            napoln_home,
+            home,
+            scope,
+            project_root,
+            mf,
+            manifest_path,
+            dry_run,
+        )
+        if code > worst_exit:
+            worst_exit = code
+        if code <= 2:
+            installed_count += 1
+
+    if dry_run:
+        output.would("update manifest")
+        output.dry_run_footer()
+
+    if len(resolved_list) > 1 and not dry_run:
+        output.success(f"Installed {installed_count} skill(s) from {source}")
+
+    return worst_exit
 
 
 def _ensure_initialized(napoln_home: Path) -> None:
@@ -123,37 +267,45 @@ def _install_single_skill(
             output.warning(warn.message)
         exit_code = 2
 
-    version = resolved.version
+    version: str = resolved.version
+    upstream_name: str = skill_name
 
-    # Check if already installed
-    if skill_name in mf.skills:
-        existing = mf.skills[skill_name]
-        if existing.version == version and existing.store_hash:
-            output.info(f"'{skill_name}' v{version} is already installed.")
+    resolution = resolve_install_id(mf, resolved, upstream_name)
+    install_id: str = resolution.install_id
+
+    if resolution.existing is not None:
+        if resolution.existing.version == version and resolution.existing.store_hash:
+            output.info(f"'{install_id}' v{version} is already installed.")
             return 0
+    elif resolution.collision_with is not None:
+        output.info(
+            f"Skill name collision detected. "
+            f"Installing as '{install_id}' to avoid conflict with "
+            f"skill from {resolution.collision_with}."
+        )
 
     if dry_run:
-        output.would(f"store skill '{skill_name}' v{version}")
+        output.would(f"store skill '{install_id}' v{version}")
         placements_map = agents_mod.deduplicate_placements(
-            agent_configs, skill_name, home, scope, project_root
+            agent_configs, install_id, home, scope, project_root
         )
         for target_path, path_agents in placements_map.items():
             agent_names = ", ".join(a.display_name for a in path_agents)
-            output.would(f"place '{skill_name}' in {target_path} ({agent_names})")
+            output.would(f"place '{install_id}' in {target_path} ({agent_names})")
         return exit_code
 
     # Store
     try:
         store_path, content_hash = store.store_skill(
-            resolved.skill_dir, skill_name, version, napoln_home
+            resolved.skill_dir, install_id, version, napoln_home
         )
     except Exception as e:
-        output.error(f"Failed to store skill '{skill_name}': {e}")
+        output.error(f"Failed to store skill '{install_id}': {e}")
         return 1
 
     # Place
     placements_map = agents_mod.deduplicate_placements(
-        agent_configs, skill_name, home, scope, project_root
+        agent_configs, install_id, home, scope, project_root
     )
     agent_placements: dict[str, manifest.AgentPlacement] = {}
 
@@ -163,7 +315,7 @@ def _install_single_skill(
             linker.write_provenance(
                 target_path, resolved.source_id, version, content_hash, link_mode
             )
-            output.success(f"Placed '{skill_name}' in {target_path} ({link_mode})")
+            output.success(f"Placed '{install_id}' in {target_path} ({link_mode})")
             for agent in path_agents:
                 agent_placements[agent.id] = manifest.AgentPlacement(
                     path=str(target_path),
@@ -171,15 +323,21 @@ def _install_single_skill(
                     scope=scope,
                 )
         except Exception as e:
-            output.error(f"Failed to place '{skill_name}' for {path_agents[0].display_name}: {e}")
+            output.error(f"Failed to place '{install_id}' for {path_agents[0].display_name}: {e}")
             return 1
 
     # Update manifest
     manifest.add_skill_to_manifest(
-        mf, skill_name, resolved.source_id, version, content_hash, agent_placements
+        mf,
+        install_id,
+        resolved.source_id,
+        version,
+        content_hash,
+        agent_placements,
+        name=upstream_name,
     )
     manifest.write_manifest(mf, manifest_path)
-    output.success(f"Added '{skill_name}' v{version}")
+    output.success(f"Added '{install_id}' v{version}")
 
     return exit_code
 
@@ -242,156 +400,14 @@ def _pick_from_multi_skill_repo(
         sid = f"{source_id}/{rel}" if str(rel) != "." else source_id
         results.append(
             ResolvedSource(
-                source_type="git",
+                source_type=SourceType.GIT,
                 source_id=sid,
                 skill_dir=choice.path,
                 version=version,
                 cleanup=False,
                 skill_name=choice.name,
+                parsed=parsed,
             )
         )
 
     return results
-
-
-def run_add(
-    source: str,
-    agent_ids: list[str] | None = None,
-    version_constraint: str | None = None,
-    scope: str = "global",
-    project_root: Path | None = None,
-    skill_name_override: str | None = None,
-    skill_filter: str | None = None,
-    dry_run: bool = False,
-) -> int:
-    """Execute the add command.
-
-    Args:
-        skill_filter: '--skill' value. '*' = all, 'name' = specific, None = single/error.
-
-    Returns:
-        Exit code (0=success, 1=error, 2=warnings).
-    """
-    import os
-
-    napoln_home = get_napoln_home()
-    home = Path(os.environ.get("HOME", Path.home()))
-
-    _ensure_initialized(napoln_home)
-
-    # Parse source
-    try:
-        parsed = parse_source(source)
-    except ResolverError as e:
-        output.error(str(e), cause=e.cause, fix=e.fix)
-        return 1
-
-    # Registry not yet available
-    if parsed.source_type == "registry":
-        output.error(
-            "Registry sources are not yet available.",
-            fix=f"Use a git source instead:\n  napoln add github.com/owner/{source}",
-        )
-        return 1
-
-    # Resolve source
-    try:
-        if parsed.source_type == "local":
-            resolved_result = resolve_local(parsed)
-        elif parsed.source_type == "git":
-            if version_constraint:
-                parsed.version = version_constraint
-            cache_dir = napoln_home / "cache"
-            resolved_result = resolve_git(parsed, cache_dir, skill_filter=skill_filter)
-        else:
-            output.error(f"Unknown source type: {parsed.source_type}")
-            return 1
-    except MultipleSkillsError as e:
-        # Interactive picker for multi-skill repos
-        resolved_result = _pick_from_multi_skill_repo(
-            e, parsed, source, version_constraint, napoln_home
-        )
-        if resolved_result is None:
-            return 1
-    except ResolverError as e:
-        output.error(str(e), cause=e.cause, fix=e.fix)
-        return 1
-
-    # Normalize to a list. ty's isinstance narrowing on a `T | list[T]` union
-    # leaves a quirky intersection, so cast through after the runtime check.
-    if isinstance(resolved_result, list):
-        resolved_list: list[ResolvedSource] = cast(list[ResolvedSource], resolved_result)
-    else:
-        resolved_list = [resolved_result]
-
-    # Detect agents — prefer configured defaults over auto-detection
-    default_agent_ids = agents_mod.load_default_agent_ids(napoln_home)
-    try:
-        agent_configs = agents_mod.resolve_agents(
-            agent_ids, home, project_root, scope, default_agent_ids=default_agent_ids
-        )
-    except ValueError as e:
-        output.error(str(e))
-        return 1
-
-    if not agent_configs:
-        output.error(
-            "No agents detected.",
-            fix="Specify agents with --agents, e.g.:\n  napoln add <source> --agents claude-code,pi",
-        )
-        return 1
-
-    # If the user has multiple agents installed but never configured defaults,
-    # nudge them toward `napoln setup` so they don't keep spray-installing.
-    if agent_ids is None and not default_agent_ids and scope == "global" and len(agent_configs) > 1:
-        output.info(
-            f"Installing to all {len(agent_configs)} detected agents. "
-            "Run `napoln setup` to choose defaults."
-        )
-
-    if dry_run:
-        output.dry_run_header()
-
-    # Install bootstrap skill on first run
-    _install_bootstrap_skill(napoln_home, home, agent_configs, scope, project_root, dry_run)
-
-    # Load manifest once
-    manifest_path = manifest.get_manifest_path(napoln_home, scope, project_root)
-    mf = manifest.read_manifest(manifest_path)
-
-    # Show summary when installing multiple skills
-    if len(resolved_list) > 1 and not dry_run:
-        skill_names = [r.skill_name or r.skill_dir.name for r in resolved_list]
-        agent_names = [a.display_name for a in agent_configs]
-        output.install_summary(skill_names, agent_names, scope)
-
-    # Install each skill
-    worst_exit = 0
-    installed_count = 0
-    for resolved in resolved_list:
-        skill_name = skill_name_override or resolved.skill_name or resolved.skill_dir.name
-        code = _install_single_skill(
-            resolved,
-            skill_name,
-            agent_configs,
-            napoln_home,
-            home,
-            scope,
-            project_root,
-            mf,
-            manifest_path,
-            dry_run,
-        )
-        if code > worst_exit:
-            worst_exit = code
-        if code <= 2:
-            installed_count += 1
-
-    if dry_run:
-        output.would("update manifest")
-        output.dry_run_footer()
-
-    if len(resolved_list) > 1 and not dry_run:
-        output.success(f"Installed {installed_count} skill(s) from {source}")
-
-    return worst_exit
