@@ -48,6 +48,8 @@ _GIT_URL = re.compile(r"^(?:https?://|git@)([^/]+)[/:](.+?)(?:\.git)?$")
 _DOMAIN_PATH = re.compile(
     r"^([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/([a-zA-Z0-9._-]+)/([a-zA-Z0-9._-]+)(?:/(.+?))?(?:@(.+))?$"
 )
+
+DEFAULT_VERSION = "0.0.0"
 _SEMVER_TAG = re.compile(r"^v?(\d+\.\d+\.\d+(?:-.+)?)$")
 
 # Cached git fetches are considered fresh within this many seconds.
@@ -382,7 +384,7 @@ def _resolve_version(skill_dir: Path, ref: str, repo_dir: Path) -> str:
     """
     # 1. Check SKILL.md metadata
     meta_version = _extract_version(skill_dir)
-    if meta_version != "0.0.0":
+    if meta_version != DEFAULT_VERSION:
         return meta_version
 
     # 2/3. Use the ref if one was resolved (tag or branch)
@@ -395,9 +397,9 @@ def _resolve_version(skill_dir: Path, ref: str, repo_dir: Path) -> str:
     # 4. Fall back to HEAD commit hash
     short_hash = _get_head_short_hash(repo_dir)
     if short_hash:
-        return f"0.0.0+{short_hash}"
+        return f"{DEFAULT_VERSION}+{short_hash}"
 
-    return "0.0.0"
+    return DEFAULT_VERSION
 
 
 def _resolve_latest_version(repo_dir: Path) -> str:
@@ -504,17 +506,17 @@ def _extract_version(skill_dir: Path) -> str:
     """Extract version from SKILL.md frontmatter metadata."""
     skill_md = skill_dir / "SKILL.md"
     if not skill_md.exists():
-        return "0.0.0"
+        return DEFAULT_VERSION
 
     try:
         import yaml
 
         content = skill_md.read_text(encoding="utf-8")
         if not content.startswith("---"):
-            return "0.0.0"
+            return DEFAULT_VERSION
         end = content.find("---", 3)
         if end == -1:
-            return "0.0.0"
+            return DEFAULT_VERSION
         frontmatter = yaml.safe_load(content[3:end])
         if isinstance(frontmatter, dict):
             # Check metadata.version first, then version
@@ -526,7 +528,7 @@ def _extract_version(skill_dir: Path) -> str:
     except Exception:
         pass
 
-    return "0.0.0"
+    return DEFAULT_VERSION
 
 
 def _extract_description(skill_dir: Path) -> str:
