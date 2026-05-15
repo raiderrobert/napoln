@@ -9,13 +9,15 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
+from napoln.core.home import NAPOLN_DIR
+
 
 def hash_skill(skill_dir: Path) -> str:
     """Hash a skill directory and return the first 7 hex chars of the SHA-256.
 
     The hash is computed over a deterministic concatenation:
         for each file (sorted by relative POSIX path, excluding .napoln):
-            relative_path \\x00 file_contents \\x00
+            relative_path \x00 file_contents \x00
 
     Args:
         skill_dir: Path to the skill directory.
@@ -25,11 +27,11 @@ def hash_skill(skill_dir: Path) -> str:
     """
     hasher = hashlib.sha256()
 
-    # Collect all files, excluding .napoln provenance
+    # Collect all files, excluding provenance files
     files = sorted(
         p.relative_to(skill_dir)
         for p in skill_dir.rglob("*")
-        if p.is_file() and p.name != ".napoln"
+        if p.is_file() and p.name != NAPOLN_DIR
     )
 
     for rel_path in files:
@@ -51,7 +53,7 @@ def hash_skill_full(skill_dir: Path) -> str:
     files = sorted(
         p.relative_to(skill_dir)
         for p in skill_dir.rglob("*")
-        if p.is_file() and p.name != ".napoln"
+        if p.is_file() and p.name != NAPOLN_DIR
     )
 
     for rel_path in files:

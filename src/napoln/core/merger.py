@@ -12,6 +12,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from napoln.core.home import NAPOLN_DIR
+
 
 def has_git() -> bool:
     """Check if git is available."""
@@ -143,7 +145,7 @@ def merge_skill(
     for d in [working_copy, store_base, store_new]:
         if d.exists():
             for f in d.rglob("*"):
-                if f.is_file() and f.name != ".napoln":
+                if f.is_file() and f.name != NAPOLN_DIR:
                     all_files.add(str(f.relative_to(d)))
 
     for rel_path in sorted(all_files):

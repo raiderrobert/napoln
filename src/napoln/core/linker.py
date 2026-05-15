@@ -9,6 +9,8 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+from napoln.core.home import NAPOLN_DIR
+
 
 def _reflink_copy(src: Path, dst: Path) -> None:
     """Attempt a reflink (copy-on-write) clone of a single file."""
@@ -116,7 +118,7 @@ def write_provenance(
         f'installed = "{now}"\n'
         f'napoln_version = "{__version__}"\n'
     )
-    (target_dir / ".napoln").write_text(provenance)
+    (target_dir / NAPOLN_DIR).write_text(provenance)
 
 
 def restore_placement(

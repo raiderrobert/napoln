@@ -11,7 +11,7 @@ import tomli_w
 from napoln import output
 from napoln.core import agents as agents_mod
 from napoln.core import manifest, store
-from napoln.core.home import get_napoln_home
+from napoln.core.home import NAPOLN_DIR, get_napoln_home
 
 
 # ─── config (bare) ───────────────────────────────────────────────────────────
@@ -54,7 +54,7 @@ def run_config_show() -> int:
         output.info(f"Global:    {global_path} (not created)")
 
     # Project manifest
-    project_path = Path.cwd() / ".napoln" / "manifest.toml"
+    project_path = Path.cwd() / NAPOLN_DIR / "manifest.toml"
     if project_path.exists():
         pmf = manifest.read_manifest(project_path)
         output.info(f"Project:   {project_path} ({len(pmf.skills)} skills)")
@@ -261,7 +261,7 @@ def run_config_gc(dry_run: bool = False) -> int:
         referenced.add(f"{name}/{entry.version}-{entry.store_hash}")
 
     # Also check project manifest if present
-    project_path = Path.cwd() / ".napoln" / "manifest.toml"
+    project_path = Path.cwd() / NAPOLN_DIR / "manifest.toml"
     if project_path.exists():
         project_mf = manifest.read_manifest(project_path)
         for name, entry in project_mf.skills.items():
