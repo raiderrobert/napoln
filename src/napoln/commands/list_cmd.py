@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import typer
 from napoln import output
 from napoln.core import manifest
 from napoln.core.home import NAPOLN_DIR, get_napoln_home
@@ -95,8 +96,6 @@ def _print_skills(
     show_paths: bool = False,
 ) -> None:
     """Print skills from a manifest under a section label."""
-    import typer
-
     if not mf.skills:
         return
 
@@ -227,8 +226,6 @@ def run_list(
 
     if project_mf and project_mf.skills:
         if has_any:
-            import typer
-
             typer.echo()  # blank line between sections
         cwd_short = _abbreviate_path(str(Path.cwd()), str(Path.home()))
         project_label = f"Project ({cwd_short})"

@@ -73,6 +73,11 @@ def print_json(data: Any) -> None:
     typer.echo(json.dumps(data, indent=2, default=str))
 
 
+def styled(message: str, **kwargs: Any) -> str:
+    """Return a styled string (pass through to typer.style)."""
+    return typer.style(message, **kwargs)
+
+
 def install_summary(
     skills: list[str],
     agent_names: list[str],
