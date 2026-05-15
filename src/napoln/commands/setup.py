@@ -10,14 +10,12 @@ import tomli_w
 
 from napoln import output
 from napoln.core import agents as agents_mod
-from napoln.core.home import get_napoln_home
+from napoln.core.home import ensure_napoln_dirs, get_napoln_home
 from napoln.prompts import pick_agents
 
 
 def _ensure_initialized(napoln_home: Path) -> None:
-    napoln_home.mkdir(parents=True, exist_ok=True)
-    (napoln_home / "store").mkdir(exist_ok=True)
-    (napoln_home / "cache").mkdir(exist_ok=True)
+    ensure_napoln_dirs(napoln_home)
 
 
 def _load_config(config_path: Path) -> dict:
