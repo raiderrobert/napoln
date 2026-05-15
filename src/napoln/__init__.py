@@ -1,3 +1,5 @@
 """napoln — A package manager for agent skills."""
 
-__version__ = "0.2.11"
+from napoln.core._version import __version__
+
+__all__ = ["__version__"]
