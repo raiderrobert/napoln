@@ -85,6 +85,14 @@ def _check_on_path(command: str) -> bool:
     return shutil.which(command) is not None
 
 
+def _agent_top_dir(config: AgentConfig) -> str:
+    """Extract the top-level directory name from an AgentConfig.
+
+    E.g. ".claude/skills" -> ".claude", ".agents/skills" -> ".agents"
+    """
+    return config.global_skill_dir.split("/")[0]
+
+
 def detect_agents(
     home: Path, project_root: Path | None = None, scope: str = "global"
 ) -> list[AgentConfig]:
@@ -111,31 +119,37 @@ def detect_agents(
     detected: list[AgentConfig] = []
 
     if scope == "global":
-        if _check_dir_exists(home / ".claude"):
+        if _check_dir_exists(home / _agent_top_dir(AGENTS["claude-code"])):
             detected.append(AGENTS["claude-code"])
 
-        if _check_dir_exists(home / ".gemini"):
+        if _check_dir_exists(home / ".gemini"):  # No config uses .gemini directly
             detected.append(AGENTS["gemini-cli"])
 
+        # pi uses .pi/ as its config dir, but shares skill dir with others
         if _check_dir_exists(home / ".pi") or _check_on_path("pi"):
             detected.append(AGENTS["pi"])
 
         if _check_on_path("codex"):
             detected.append(AGENTS["codex"])
 
-        if _check_dir_exists(home / ".cursor"):
+        if _check_dir_exists(home / _agent_top_dir(AGENTS["cursor"])):
             detected.append(AGENTS["cursor"])
 
-        if _check_dir_exists(home / ".hermes") or _check_on_path("hermes"):
+        if _check_dir_exists(home / _agent_top_dir(AGENTS["hermes"])) or _check_on_path("hermes"):
             detected.append(AGENTS["hermes"])
     elif scope == "project" and project_root:
-        if _check_dir_exists(project_root / ".claude"):
+        if _check_dir_exists(project_root / _agent_top_dir(AGENTS["claude-code"])):
             detected.append(AGENTS["claude-code"])
 
-        if _check_dir_exists(project_root / ".gemini"):
+        if _check_dir_exists(project_root / ".gemini"):  # No config uses .gemini directly
             detected.append(AGENTS["gemini-cli"])
 
-        if _check_dir_exists(project_root / ".pi") or _check_dir_exists(project_root / ".agents"):
+        pi_top = _agent_top_dir(AGENTS["pi"])
+        if (
+            _check_dir_exists(project_root / ".pi")
+            or _check_dir_exists(project_root / pi_top)
+            or _check_dir_exists(project_root / ".agents")
+        ):
             detected.append(AGENTS["pi"])
 
         # Codex and Cursor share .agents/ at project level
@@ -145,7 +159,7 @@ def detect_agents(
             if AGENTS["cursor"] not in detected:
                 detected.append(AGENTS["cursor"])
 
-        if _check_dir_exists(project_root / ".hermes"):
+        if _check_dir_exists(project_root / _agent_top_dir(AGENTS["hermes"])):
             detected.append(AGENTS["hermes"])
 
     return detected
