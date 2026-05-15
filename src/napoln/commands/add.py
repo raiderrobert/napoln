@@ -8,7 +8,7 @@ from typing import cast
 from napoln import output
 from napoln.core import agents as agents_mod
 from napoln.core import linker, manifest, store, validator
-from napoln.core.home import get_napoln_home
+from napoln.core.home import ensure_napoln_dirs, get_napoln_home
 from napoln.core.naming import resolve_install_id
 from napoln.core.resolver import (
     ParsedSource,
@@ -168,9 +168,7 @@ def run_add(
 
 def _ensure_initialized(napoln_home: Path) -> None:
     """Ensure napoln home directory structure exists."""
-    napoln_home.mkdir(parents=True, exist_ok=True)
-    (napoln_home / "store").mkdir(exist_ok=True)
-    (napoln_home / "cache").mkdir(exist_ok=True)
+    ensure_napoln_dirs(napoln_home)
 
     config_path = napoln_home / "config.toml"
     if not config_path.exists():
