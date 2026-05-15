@@ -7,9 +7,11 @@ Fallback: full copy via shutil.copy2 if reflink is unavailable.
 from __future__ import annotations
 
 import shutil
+from datetime import datetime, timezone
 from pathlib import Path
 
 from napoln.core.home import NAPOLN_DIR
+from napoln.core._version import __version__
 
 
 def _reflink_copy(src: Path, dst: Path) -> None:
@@ -104,11 +106,7 @@ def write_provenance(
     store_hash: str,
     link_mode: str,
 ) -> None:
-    """Write the .napoln provenance file to a placement."""
-    from datetime import datetime, timezone
-
-    from napoln import __version__
-
+    """Write the napoln provenance file to a placement."""
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     provenance = (
         f'source = "{source}"\n'
