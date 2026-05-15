@@ -19,6 +19,21 @@ class SkillChoice:
     installed: bool = False
 
 
+def _configure_questionary_indicators() -> None:
+    """Configure questionary checkbox indicators to use ✓ and blank cell.
+
+    Some terminal fonts don't render the default circle glyphs distinctly.
+    setattr bypasses ty's complaint about questionary's Literal-typed constants.
+    """
+    from questionary import constants as q_constants
+    from questionary.prompts import common as q_common
+
+    setattr(q_constants, "INDICATOR_SELECTED", "✓")
+    setattr(q_constants, "INDICATOR_UNSELECTED", " ")
+    setattr(q_common, "INDICATOR_SELECTED", "✓")
+    setattr(q_common, "INDICATOR_UNSELECTED", " ")
+
+
 def _short_description(desc: str, max_len: int = 60) -> str:
     """Extract a short summary from a potentially long description.
 
@@ -72,16 +87,8 @@ def pick_skills(choices: list[SkillChoice]) -> list[SkillChoice]:
         return choices
 
     import questionary
-    from questionary import constants as q_constants
-    from questionary.prompts import common as q_common
 
-    # Use ✓ and a blank cell as indicators. Some terminal fonts don't render
-    # the default ○/● glyphs distinctly. setattr bypasses ty's complaint about
-    # questionary's Literal-typed module constants.
-    setattr(q_constants, "INDICATOR_SELECTED", "✓")
-    setattr(q_constants, "INDICATOR_UNSELECTED", " ")
-    setattr(q_common, "INDICATOR_SELECTED", "✓")
-    setattr(q_common, "INDICATOR_UNSELECTED", " ")
+    _configure_questionary_indicators()
 
     max_name = max(len(c.name) for c in choices) if choices else 0
 
@@ -133,13 +140,8 @@ def pick_agents(
         return list(available)
 
     import questionary
-    from questionary import constants as q_constants
-    from questionary.prompts import common as q_common
 
-    setattr(q_constants, "INDICATOR_SELECTED", "✓")
-    setattr(q_constants, "INDICATOR_UNSELECTED", " ")
-    setattr(q_common, "INDICATOR_SELECTED", "✓")
-    setattr(q_common, "INDICATOR_UNSELECTED", " ")
+    _configure_questionary_indicators()
 
     preselected = set(preselected_ids or [])
     max_name = max(len(a.display_name) for a in available)
