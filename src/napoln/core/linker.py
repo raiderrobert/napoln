@@ -12,6 +12,7 @@ from pathlib import Path
 
 from napoln.core.home import NAPOLN_DIR
 from napoln.core._version import __version__
+from napoln.errors import PlacementError
 
 
 def _reflink_copy(src: Path, dst: Path) -> None:
@@ -64,18 +65,43 @@ def place_skill(store_path: Path, target_dir: Path) -> str:
 
     Returns:
         "clone" or "copy" depending on the link mode used.
-    """
-    if target_dir.exists():
-        shutil.rmtree(target_dir)
 
-    target_dir.mkdir(parents=True, exist_ok=True)
+    Raises:
+        PlacementError: If placement fails due to filesystem issues.
+    """
+    try:
+        if target_dir.exists():
+            shutil.rmtree(target_dir)
+    except OSError as e:
+        raise PlacementError(
+            f"Failed to remove existing placement directory: {target_dir}",
+            cause=str(e),
+            fix="Check file permissions and ensure no other process is using the directory.",
+        ) from e
+
+    try:
+        target_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        raise PlacementError(
+            f"Failed to create placement directory: {target_dir}",
+            cause=str(e),
+            fix="Check parent directory permissions.",
+        ) from e
+
     link_mode: str | None = None
 
     for src_file in sorted(store_path.rglob("*")):
         if src_file.is_file():
             rel = src_file.relative_to(store_path)
             dst_file = target_dir / rel
-            dst_file.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                dst_file.parent.mkdir(parents=True, exist_ok=True)
+            except OSError as e:
+                raise PlacementError(
+                    f"Failed to create directory: {dst_file.parent}",
+                    cause=str(e),
+                    fix="Check parent directory permissions.",
+                ) from e
             mode = clone_file(src_file, dst_file)
             if link_mode is None:
                 link_mode = mode
