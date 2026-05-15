@@ -30,3 +30,17 @@ Feature: Configuration and housekeeping
     When I run napoln config gc --dry-run
     Then the output contains "Dry run"
     And the exit code is 0
+
+  Scenario: Set a config value
+    Given Claude Code is installed
+    And napoln is initialized
+    When I run napoln config set napoln.default_scope project
+    Then the output contains "Set"
+    And the exit code is 0
+
+  Scenario: Doctor with JSON output
+    Given Claude Code is installed
+    And a skill "test-skill" is installed
+    When I run napoln config doctor --json
+    Then the output contains "checks_passed"
+    And the exit code is 0

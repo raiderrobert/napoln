@@ -1,4 +1,4 @@
-"""BDD-specific fixtures for napoln feature tests."""
+"""BDD-specific fixtures and shared step definitions for napoln feature tests."""
 
 from __future__ import annotations
 
@@ -7,7 +7,10 @@ from pathlib import Path
 
 import pytest
 import tomli_w
+from pytest_bdd import given, parsers, then
 from typer.testing import CliRunner
+
+from napoln.cli import app
 
 
 class NapolnTestEnv:
@@ -26,6 +29,7 @@ class NapolnTestEnv:
         }
         self.skill_dir: Path | None = None
         self._version_counter = 0
+        self._project_skill_placement: Path | None = None
 
     def create_local_skill(
         self,
@@ -81,3 +85,41 @@ def napoln_env(tmp_path) -> NapolnTestEnv:
 @pytest.fixture
 def cli_runner() -> CliRunner:
     return CliRunner()
+
+
+# ─── Shared Given steps ──────────────────────────────────────────────────────
+
+
+@given("Claude Code is installed", target_fixture="env")
+def claude_installed(napoln_env: NapolnTestEnv, monkeypatch):
+    """Set up Claude Code as the only detected agent.
+
+    Monkeypatches _check_on_path so agents on the developer's real PATH
+    (pi, codex, hermes) don't leak into the test.
+    """
+    (napoln_env.home / ".claude").mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr("napoln.core.agents._check_on_path", lambda cmd: False)
+    return napoln_env
+
+
+@given(parsers.parse('a skill "{name}" is installed'))
+def skill_installed(env: NapolnTestEnv, name: str, cli_runner: CliRunner):
+    skill_path = env.create_local_skill(name)
+    result = cli_runner.invoke(app, ["add", str(skill_path)], env=env.env_vars)
+    assert result.exit_code == 0, result.output
+
+
+# ─── Shared Then steps ───────────────────────────────────────────────────────
+
+
+@then(parsers.parse("the exit code is {code:d}"))
+def check_exit_code(result_env: NapolnTestEnv, code: int):
+    assert result_env.result.exit_code == code, (
+        f"Expected exit {code}, got {result_env.result.exit_code}\n"
+        f"Output:\n{result_env.result.output}"
+    )
+
+
+@then(parsers.parse('the output contains "{text}"'))
+def output_contains(result_env: NapolnTestEnv, text: str):
+    assert text in result_env.result.output, f"Expected '{text}' in:\n{result_env.result.output}"

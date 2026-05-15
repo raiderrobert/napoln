@@ -36,13 +36,14 @@ def test_setup_no_agents():
 
 
 # ─── Given ────────────────────────────────────────────────────────────────────
+# These scenarios use their own Given steps (not the shared "Claude Code is
+# installed") because they set up multi-agent or no-agent environments.
 
 
 @given("Claude Code and Cursor are installed", target_fixture="env")
 def claude_and_cursor(napoln_env: NapolnTestEnv, monkeypatch):
     (napoln_env.home / ".claude").mkdir(parents=True, exist_ok=True)
     (napoln_env.home / ".cursor").mkdir(parents=True, exist_ok=True)
-    # Don't let pi/codex on the real PATH leak into detection.
     monkeypatch.setattr("napoln.core.agents._check_on_path", lambda cmd: False)
     return napoln_env
 
@@ -76,7 +77,6 @@ def run_setup_with_selection(env: NapolnTestEnv, ids: str, cli_runner: CliRunner
 
     selected_ids = [a.strip() for a in ids.split(",")]
     selected = [agents_mod.AGENTS[aid] for aid in selected_ids]
-    # Bypass the questionary prompt: return the chosen agents directly.
     monkeypatch.setattr(
         "napoln.commands.setup.pick_agents", lambda available, preselected_ids=None: selected
     )
@@ -98,6 +98,9 @@ def run_add(env: NapolnTestEnv, cli_runner: CliRunner):
 
 
 # ─── Then ────────────────────────────────────────────────────────────────────
+# Note: setup.feature overrides "the output contains" to also check stderr,
+# since some setup messages go to stderr. This intentionally shadows the
+# conftest version for this file only.
 
 
 @then(parsers.parse('the config contains default_agents "{ids}"'))
@@ -118,7 +121,7 @@ def placed_only_for_claude(result_env: NapolnTestEnv):
 
 
 @then(parsers.parse('the output contains "{text}"'))
-def output_contains(result_env: NapolnTestEnv, text: str):
+def output_contains_with_stderr(result_env: NapolnTestEnv, text: str):
     combined = result_env.result.output + (result_env.result.stderr or "")
     assert text in combined, f"Expected '{text}' in:\n{combined}"
 

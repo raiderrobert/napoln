@@ -29,25 +29,23 @@ def test_config_gc_dry():
     pass
 
 
+@scenario("../features/config.feature", "Set a config value")
+def test_config_set():
+    pass
+
+
+@scenario("../features/config.feature", "Doctor with JSON output")
+def test_config_doctor_json():
+    pass
+
+
 # ─── Given ────────────────────────────────────────────────────────────────────
-
-
-@given("Claude Code is installed", target_fixture="env")
-def claude_installed(napoln_env: NapolnTestEnv):
-    (napoln_env.home / ".claude").mkdir(parents=True, exist_ok=True)
-    return napoln_env
+# "Claude Code is installed" and 'a skill "{name}" is installed' are in conftest.
 
 
 @given("napoln is initialized")
 def napoln_initialized(env: NapolnTestEnv, cli_runner: CliRunner):
-    # Add a skill to trigger initialization
     skill_path = env.create_local_skill("init-skill")
-    cli_runner.invoke(app, ["add", str(skill_path)], env=env.env_vars)
-
-
-@given(parsers.parse('a skill "{name}" is installed'))
-def skill_installed(env: NapolnTestEnv, name: str, cli_runner: CliRunner):
-    skill_path = env.create_local_skill(name)
     cli_runner.invoke(app, ["add", str(skill_path)], env=env.env_vars)
 
 
@@ -78,19 +76,25 @@ def run_gc_dry(env: NapolnTestEnv, cli_runner: CliRunner):
     return env
 
 
+@when(
+    parsers.parse("I run napoln config set {key} {value}"),
+    target_fixture="result_env",
+)
+def run_config_set(env: NapolnTestEnv, key: str, value: str, cli_runner: CliRunner):
+    env.result = cli_runner.invoke(app, ["config", "set", key, value], env=env.env_vars)
+    return env
+
+
+@when("I run napoln config doctor --json", target_fixture="result_env")
+def run_doctor_json(env: NapolnTestEnv, cli_runner: CliRunner):
+    env.result = cli_runner.invoke(app, ["config", "doctor", "--json"], env=env.env_vars)
+    return env
+
+
 # ─── Then ────────────────────────────────────────────────────────────────────
-
-
-@then(parsers.parse('the output contains "{text}"'))
-def output_contains(result_env: NapolnTestEnv, text: str):
-    assert text in result_env.result.output
+# "the exit code is" and "the output contains" are in conftest.
 
 
 @then("the output contains checks passed")
 def output_has_checks(result_env: NapolnTestEnv):
     assert "✓" in result_env.result.output or "integrity" in result_env.result.output.lower()
-
-
-@then(parsers.parse("the exit code is {code:d}"))
-def check_exit_code(result_env: NapolnTestEnv, code: int):
-    assert result_env.result.exit_code == code

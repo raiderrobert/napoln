@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 
-from pytest_bdd import given, parsers, scenario, then, when
+from pytest_bdd import scenario, then, when
 from typer.testing import CliRunner
 
 from napoln.cli import app
@@ -27,18 +28,7 @@ def test_list_json():
 
 
 # ─── Given ────────────────────────────────────────────────────────────────────
-
-
-@given("Claude Code is installed", target_fixture="env")
-def claude_installed(napoln_env: NapolnTestEnv):
-    (napoln_env.home / ".claude").mkdir(parents=True, exist_ok=True)
-    return napoln_env
-
-
-@given(parsers.parse('a skill "{name}" is installed'))
-def skill_installed(env: NapolnTestEnv, name: str, cli_runner: CliRunner):
-    skill_path = env.create_local_skill(name)
-    cli_runner.invoke(app, ["add", str(skill_path)], env=env.env_vars)
+# "Claude Code is installed" and 'a skill "{name}" is installed' are in conftest.
 
 
 # ─── When ────────────────────────────────────────────────────────────────────
@@ -46,8 +36,6 @@ def skill_installed(env: NapolnTestEnv, name: str, cli_runner: CliRunner):
 
 @when("I run napoln list", target_fixture="result_env")
 def run_list(env: NapolnTestEnv, cli_runner: CliRunner):
-    import os
-
     old_cwd = os.getcwd()
     try:
         os.chdir(env.home)
@@ -59,8 +47,6 @@ def run_list(env: NapolnTestEnv, cli_runner: CliRunner):
 
 @when("I run napoln list --json", target_fixture="result_env")
 def run_list_json(env: NapolnTestEnv, cli_runner: CliRunner):
-    import os
-
     old_cwd = os.getcwd()
     try:
         os.chdir(env.home)
@@ -71,20 +57,11 @@ def run_list_json(env: NapolnTestEnv, cli_runner: CliRunner):
 
 
 # ─── Then ────────────────────────────────────────────────────────────────────
+# "the exit code is" and "the output contains" are in conftest.
 
 
-@then(parsers.parse('the output contains "{text}"'))
-def output_contains(result_env: NapolnTestEnv, text: str):
-    assert text in result_env.result.output
-
-
-@then(parsers.parse("the exit code is {code:d}"))
-def check_exit_code(result_env: NapolnTestEnv, code: int):
-    assert result_env.result.exit_code == code
-
-
-@then(parsers.parse('the output is valid JSON with "{skill}" in global'))
-def output_valid_json_with_skill(result_env: NapolnTestEnv, skill: str):
+@then('the output is valid JSON with "test-skill" in global')
+def output_valid_json_with_skill(result_env: NapolnTestEnv):
     data = json.loads(result_env.result.output)
     assert "global" in data
-    assert skill in data["global"]
+    assert "test-skill" in data["global"]
