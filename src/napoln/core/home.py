@@ -10,6 +10,9 @@ import os
 from pathlib import Path
 
 
+NAPOLN_DIR = ".napoln"
+
+
 def get_napoln_home() -> Path:
     """Return the configured napoln home directory."""
-    return Path(os.environ.get("NAPOLN_HOME", Path.home() / ".napoln"))
+    return Path(os.environ.get("NAPOLN_HOME", Path.home() / NAPOLN_DIR))

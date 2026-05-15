@@ -10,6 +10,7 @@ import shutil
 from pathlib import Path
 
 from napoln.core.hasher import hash_skill
+from napoln.core.home import NAPOLN_DIR
 from napoln.errors import StoreError
 
 
@@ -63,8 +64,8 @@ def store_skill(
             shutil.rmtree(temp_path)
         shutil.copytree(str(skill_dir), str(temp_path))
 
-        # Remove .napoln provenance if it was copied from a previous placement
-        napoln_file = temp_path / ".napoln"
+        # Remove provenance file if it was copied from a previous placement
+        napoln_file = temp_path / NAPOLN_DIR
         if napoln_file.exists():
             napoln_file.unlink()
 

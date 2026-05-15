@@ -14,6 +14,7 @@ from pathlib import Path
 import tomli_w
 from pydantic import BaseModel, Field
 
+from napoln.core.home import NAPOLN_DIR
 from napoln.errors import ManifestError
 
 
@@ -264,5 +265,5 @@ def get_manifest_path(
         Path to the manifest.toml file.
     """
     if scope == "project" and project_root:
-        return project_root / ".napoln" / "manifest.toml"
+        return project_root / NAPOLN_DIR / "manifest.toml"
     return napoln_home / "manifest.toml"

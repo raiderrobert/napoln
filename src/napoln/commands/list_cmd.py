@@ -6,7 +6,7 @@ from pathlib import Path
 
 from napoln import output
 from napoln.core import manifest
-from napoln.core.home import get_napoln_home
+from napoln.core.home import NAPOLN_DIR, get_napoln_home
 
 
 def _abbreviate_path(path: str, home: str) -> str:
@@ -211,7 +211,7 @@ def run_list(
 
     # Read project manifest if it exists
     if not global_only:
-        project_path = Path.cwd() / ".napoln" / "manifest.toml"
+        project_path = Path.cwd() / NAPOLN_DIR / "manifest.toml"
         if project_path.exists() and project_path.resolve() != global_path.resolve():
             project_mf = manifest.read_manifest(project_path)
 

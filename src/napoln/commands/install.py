@@ -6,7 +6,7 @@ from pathlib import Path
 
 from napoln import output
 from napoln.core import linker, manifest, store
-from napoln.core.home import get_napoln_home
+from napoln.core.home import NAPOLN_DIR, get_napoln_home
 from napoln.errors import NapolnError
 
 
@@ -98,7 +98,7 @@ def run_install(
 
     # Project manifest
     if not global_only:
-        project_path = Path.cwd() / ".napoln" / "manifest.toml"
+        project_path = Path.cwd() / NAPOLN_DIR / "manifest.toml"
         if project_path.exists():
             project_mf = manifest.read_manifest(project_path)
             if project_mf.skills:
