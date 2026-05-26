@@ -525,7 +525,7 @@ def _extract_version(skill_dir: Path) -> str:
                 return str(metadata["version"])
             if "version" in frontmatter:
                 return str(frontmatter["version"])
-    except Exception:
+    except (OSError, yaml.YAMLError, UnicodeDecodeError):
         pass
 
     return DEFAULT_VERSION
@@ -549,7 +549,7 @@ def _extract_description(skill_dir: Path) -> str:
         frontmatter = yaml.safe_load(content[3:end])
         if isinstance(frontmatter, dict):
             return str(frontmatter.get("description", ""))
-    except Exception:
+    except (OSError, yaml.YAMLError, UnicodeDecodeError):
         pass
 
     return ""

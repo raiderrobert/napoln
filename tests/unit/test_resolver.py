@@ -7,6 +7,8 @@ import pytest
 from napoln.core import resolver
 from napoln.core.resolver import (
     ParsedSource,
+    _extract_description,
+    _extract_version,
     _fetch_sentinel,
     _should_fetch,
     parse_source,
@@ -292,3 +294,106 @@ class TestResolveGitFetch:
 
         fetch_calls = [c for c in calls if c[:2] == ["git", "fetch"]]
         assert len(fetch_calls) == 2
+
+
+class TestExtractVersion:
+    """Regression: broad except Exception swallows programming bugs."""
+
+    def test_returns_default_on_yaml_error(self, tmp_path):
+        skill_dir = tmp_path / "skill"
+        skill_dir.mkdir()
+        skill_dir.joinpath("SKILL.md").write_text("---\n[invalid yaml\n---\n# Hello")
+
+        import yaml
+
+        # Ensure yaml.safe_load actually raises YAMLError for this content
+        with pytest.raises(yaml.YAMLError):
+            yaml.safe_load("[invalid yaml")
+
+        assert _extract_version(skill_dir) == "0.0.0"
+
+    def test_returns_default_on_os_error(self, tmp_path, monkeypatch):
+        skill_dir = tmp_path / "skill"
+        skill_dir.mkdir()
+        skill_dir.joinpath("SKILL.md").write_text("---\nversion: 1.0.0\n---\n")
+
+        def raise_oserror(*_args, **_kwargs):
+            raise OSError("permission denied")
+
+        monkeypatch.setattr("pathlib.Path.read_text", raise_oserror)
+        assert _extract_version(skill_dir) == "0.0.0"
+
+    def test_returns_default_on_unicode_decode_error(self, tmp_path, monkeypatch):
+        skill_dir = tmp_path / "skill"
+        skill_dir.mkdir()
+        skill_dir.joinpath("SKILL.md").write_text("---\nversion: 1.0.0\n---\n")
+
+        def raise_unicode(*_args, **_kwargs):
+            raise UnicodeDecodeError("utf-8", b"", 0, 1, "invalid")
+
+        monkeypatch.setattr("pathlib.Path.read_text", raise_unicode)
+        assert _extract_version(skill_dir) == "0.0.0"
+
+    def test_propagates_type_error(self, tmp_path, monkeypatch):
+        """Programming bugs must not be swallowed."""
+        skill_dir = tmp_path / "skill"
+        skill_dir.mkdir()
+        skill_dir.joinpath("SKILL.md").write_text("---\nversion: 1.0.0\n---\n")
+
+        def raise_typeerror(*_args, **_kwargs):
+            raise TypeError("programming bug")
+
+        monkeypatch.setattr("pathlib.Path.read_text", raise_typeerror)
+        with pytest.raises(TypeError, match="programming bug"):
+            _extract_version(skill_dir)
+
+
+class TestExtractDescription:
+    """Regression: broad except Exception swallows programming bugs."""
+
+    def test_returns_empty_on_yaml_error(self, tmp_path):
+        skill_dir = tmp_path / "skill"
+        skill_dir.mkdir()
+        skill_dir.joinpath("SKILL.md").write_text("---\n[invalid yaml\n---\n# Hello")
+
+        import yaml
+
+        with pytest.raises(yaml.YAMLError):
+            yaml.safe_load("[invalid yaml")
+
+        assert _extract_description(skill_dir) == ""
+
+    def test_returns_empty_on_os_error(self, tmp_path, monkeypatch):
+        skill_dir = tmp_path / "skill"
+        skill_dir.mkdir()
+        skill_dir.joinpath("SKILL.md").write_text("---\ndescription: hello\n---\n")
+
+        def raise_oserror(*_args, **_kwargs):
+            raise OSError("permission denied")
+
+        monkeypatch.setattr("pathlib.Path.read_text", raise_oserror)
+        assert _extract_description(skill_dir) == ""
+
+    def test_returns_empty_on_unicode_decode_error(self, tmp_path, monkeypatch):
+        skill_dir = tmp_path / "skill"
+        skill_dir.mkdir()
+        skill_dir.joinpath("SKILL.md").write_text("---\ndescription: hello\n---\n")
+
+        def raise_unicode(*_args, **_kwargs):
+            raise UnicodeDecodeError("utf-8", b"", 0, 1, "invalid")
+
+        monkeypatch.setattr("pathlib.Path.read_text", raise_unicode)
+        assert _extract_description(skill_dir) == ""
+
+    def test_propagates_type_error(self, tmp_path, monkeypatch):
+        """Programming bugs must not be swallowed."""
+        skill_dir = tmp_path / "skill"
+        skill_dir.mkdir()
+        skill_dir.joinpath("SKILL.md").write_text("---\ndescription: hello\n---\n")
+
+        def raise_typeerror(*_args, **_kwargs):
+            raise TypeError("programming bug")
+
+        monkeypatch.setattr("pathlib.Path.read_text", raise_typeerror)
+        with pytest.raises(TypeError, match="programming bug"):
+            _extract_description(skill_dir)

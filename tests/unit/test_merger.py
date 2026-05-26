@@ -158,3 +158,35 @@ class TestHasConflictMarkers:
 
     def test_nonexistent_file(self, tmp_path):
         assert has_conflict_markers(tmp_path / "nope.md") is False
+
+    def test_returns_false_on_os_error(self, tmp_path, monkeypatch):
+        f = tmp_path / "test.md"
+        f.write_text("<<<<<<< local\nfoo\n=======\nbar\n>>>>>>> upstream\n")
+
+        def raise_oserror(*_args, **_kwargs):
+            raise OSError("permission denied")
+
+        monkeypatch.setattr("pathlib.Path.read_text", raise_oserror)
+        assert has_conflict_markers(f) is False
+
+    def test_returns_false_on_unicode_decode_error(self, tmp_path, monkeypatch):
+        f = tmp_path / "test.md"
+        f.write_text("<<<<<<< local\nfoo\n=======\nbar\n>>>>>>> upstream\n")
+
+        def raise_unicode(*_args, **_kwargs):
+            raise UnicodeDecodeError("utf-8", b"", 0, 1, "invalid")
+
+        monkeypatch.setattr("pathlib.Path.read_text", raise_unicode)
+        assert has_conflict_markers(f) is False
+
+    def test_propagates_type_error(self, tmp_path, monkeypatch):
+        """Programming bugs must not be swallowed."""
+        f = tmp_path / "test.md"
+        f.write_text("<<<<<<< local\nfoo\n=======\nbar\n>>>>>>> upstream\n")
+
+        def raise_typeerror(*_args, **_kwargs):
+            raise TypeError("programming bug")
+
+        monkeypatch.setattr("pathlib.Path.read_text", raise_typeerror)
+        with pytest.raises(TypeError, match="programming bug"):
+            has_conflict_markers(f)

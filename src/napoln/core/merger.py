@@ -229,5 +229,5 @@ def has_conflict_markers(file_path: Path) -> bool:
     try:
         content = file_path.read_text(encoding="utf-8")
         return "<<<<<<< " in content and "=======" in content and ">>>>>>> " in content
-    except Exception:
+    except (OSError, UnicodeDecodeError):
         return False

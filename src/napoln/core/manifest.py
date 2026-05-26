@@ -81,7 +81,7 @@ def read_manifest(path: Path) -> Manifest:
 
     try:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
-    except Exception as e:
+    except (OSError, tomllib.TOMLDecodeError) as e:
         raise ManifestError(
             f"Could not read manifest: {path}",
             cause=str(e),
@@ -159,13 +159,12 @@ def write_manifest(manifest: Manifest, path: Path) -> None:
     try:
         tmp_path.write_text(serialized, encoding="utf-8")
         os.replace(tmp_path, path)
-    except Exception:
+    finally:
         if tmp_path.exists():
             try:
                 tmp_path.unlink()
             except OSError:
                 pass
-        raise
 
 
 def add_skill_to_manifest(
