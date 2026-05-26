@@ -58,6 +58,9 @@ def add(
     project: Annotated[
         bool, typer.Option("--project", "-p", help="Install to the current project.")
     ] = False,
+    global_: Annotated[
+        bool, typer.Option("--global", "-g", help="Install globally (every session).")
+    ] = False,
     agents: Annotated[
         Optional[str],
         typer.Option("--agents", help="Override auto-detected agents (comma-separated)."),
@@ -72,10 +75,34 @@ def add(
 ) -> None:
     """Install skills from a git repo or local path."""
     from napoln.commands.add import run_add
+    from napoln.core.home import get_napoln_home
+    from napoln.core.project import is_inside_project, load_config_default_scope, resolve_scope
 
     agent_ids = [a.strip() for a in agents.split(",")] if agents else None
-    scope = "project" if project else "global"
-    project_root = Path.cwd() if project else None
+
+    napoln_home = get_napoln_home()
+    config_default = load_config_default_scope(napoln_home)
+    scope = resolve_scope(
+        global_flag=global_,
+        project_flag=project,
+        config_default=config_default,
+    )
+
+    # add is strict: outside a project without an explicit flag, refuse
+    if scope == "global" and not global_ and not is_inside_project():
+        typer.echo(
+            typer.style("Error: ", fg=typer.colors.RED, bold=True)
+            + "No project found in the current directory.\n",
+            err=True,
+        )
+        typer.echo(
+            "Run inside a project, or use --global to install globally:\n"
+            f"  napoln add {source} --global",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    project_root = Path.cwd() if scope == "project" else None
 
     # Map --all flag to skill_filter='*'
     skill_filter = "*" if all_skills else skill

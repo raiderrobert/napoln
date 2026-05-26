@@ -52,7 +52,7 @@ def no_skills(env: NapolnTestEnv):
 @given(parsers.parse('a skill "{name}" is installed from "{source}"'))
 def skill_installed_from_source(env: NapolnTestEnv, name: str, source: str, cli_runner: CliRunner):
     skill_path = env.create_local_skill(name)
-    result = cli_runner.invoke(app, ["add", str(skill_path)], env=env.env_vars)
+    result = cli_runner.invoke(app, ["add", str(skill_path), "--global"], env=env.env_vars)
     assert result.exit_code == 0, result.output
 
     mf_path = env.napoln_home / "manifest.toml"

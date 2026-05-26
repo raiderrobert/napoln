@@ -16,7 +16,7 @@ class TestEnsureInitialized:
         assert (home / "store").is_dir()
         assert (home / "cache").is_dir()
 
-    def test_writes_default_config(self, tmp_path):
+    def test_writes_default_config_with_project_scope(self, tmp_path):
         home = tmp_path / ".napoln"
         _ensure_initialized(home)
 
@@ -24,7 +24,7 @@ class TestEnsureInitialized:
         assert config_path.exists()
         data = tomllib.loads(config_path.read_text())
         assert data["napoln"]["default_agents"] == []
-        assert data["napoln"]["default_scope"] == "global"
+        assert data["napoln"]["default_scope"] == "project"
         assert data["telemetry"]["enabled"] is False
 
     def test_does_not_overwrite_existing_config(self, tmp_path):

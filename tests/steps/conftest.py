@@ -105,7 +105,7 @@ def claude_installed(napoln_env: NapolnTestEnv, monkeypatch):
 @given(parsers.parse('a skill "{name}" is installed'))
 def skill_installed(env: NapolnTestEnv, name: str, cli_runner: CliRunner):
     skill_path = env.create_local_skill(name)
-    result = cli_runner.invoke(app, ["add", str(skill_path)], env=env.env_vars)
+    result = cli_runner.invoke(app, ["add", str(skill_path), "--global"], env=env.env_vars)
     assert result.exit_code == 0, result.output
 
 
