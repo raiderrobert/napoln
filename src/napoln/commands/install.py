@@ -7,7 +7,7 @@ from pathlib import Path
 from napoln import output
 from napoln.core import linker, manifest, store
 from napoln.core.home import NAPOLN_DIR, get_napoln_home
-from napoln.errors import NapolnError
+from napoln.errors import NapolnError, PlacementError
 
 
 def _sync_manifest(
@@ -51,7 +51,7 @@ def _sync_manifest(
                     if result is not None:
                         output.success(f"Restored '{skill_name}' to {placement_path}")
                         synced += 1
-                except Exception as e:
+                except (PlacementError, OSError) as e:
                     output.error(f"Failed to restore '{skill_name}' to {placement_path}: {e}")
                     errors += 1
 

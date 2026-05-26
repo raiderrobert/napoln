@@ -71,7 +71,7 @@ def store_skill(
 
         # Atomic rename
         temp_path.rename(store_path)
-    except Exception:
+    except OSError:
         if temp_path.exists():
             shutil.rmtree(temp_path)
         raise

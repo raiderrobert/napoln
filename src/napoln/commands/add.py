@@ -20,7 +20,13 @@ from napoln.core.resolver import (
     resolve_git,
     resolve_local,
 )
-from napoln.errors import MultipleSkillsError, ResolverError
+from napoln.errors import (
+    ManifestError,
+    MultipleSkillsError,
+    PlacementError,
+    ResolverError,
+    StoreError,
+)
 from napoln.prompts import SkillChoice, pick_skills
 
 
@@ -297,7 +303,7 @@ def _install_single_skill(
         store_path, content_hash = store.store_skill(
             resolved.skill_dir, install_id, version, napoln_home
         )
-    except Exception as e:
+    except (StoreError, OSError) as e:
         output.error(f"Failed to store skill '{install_id}': {e}")
         return 1
 
@@ -320,7 +326,7 @@ def _install_single_skill(
                     link_mode=link_mode,
                     scope=scope,
                 )
-        except Exception as e:
+        except (PlacementError, OSError) as e:
             output.error(f"Failed to place '{install_id}' for {path_agents[0].display_name}: {e}")
             return 1
 
@@ -363,7 +369,7 @@ def _pick_from_multi_skill_repo(
             continue
         try:
             mf = manifest.read_manifest(mf_path)
-        except Exception:
+        except (ManifestError, OSError):
             continue
         for entry in mf.skills.values():
             installed_sources.add(entry.source)

@@ -9,6 +9,7 @@ from napoln import output
 from napoln.core import agents as agents_mod
 from napoln.core import linker, manifest, store
 from napoln.core.home import get_napoln_home
+from napoln.errors import PlacementError, StoreError
 from napoln.prompts import SkillChoice, pick_agents, pick_skills
 
 
@@ -64,7 +65,7 @@ def _place_skill_for_agent(
             skill_entry.source,
             napoln_home,
         )
-    except Exception as e:
+    except (StoreError, OSError) as e:
         output.error(f"Failed to retrieve '{skill_name}' from store: {e}")
         return None
 
@@ -82,7 +83,7 @@ def _place_skill_for_agent(
             link_mode,
         )
         return link_mode
-    except Exception as e:
+    except (PlacementError, OSError) as e:
         output.error(f"Failed to place '{skill_name}': {e}")
         return None
 

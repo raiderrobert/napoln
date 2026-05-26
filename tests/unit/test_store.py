@@ -110,3 +110,36 @@ class TestVerifyStoreEntry:
 
         (store_path / "SKILL.md").write_text("CORRUPTED")
         assert verify_store_entry(store_path) is False
+
+    def test_cleans_up_temp_on_os_error(self, skill_builder, store_home, monkeypatch):
+        """OSError during copytree should clean up the temp directory."""
+        skill_dir = skill_builder("my-skill")
+        import shutil
+
+        def failing_copytree(*_args, **_kwargs):
+            raise OSError("disk full")
+
+        monkeypatch.setattr(shutil, "copytree", failing_copytree)
+
+        with pytest.raises(OSError, match="disk full"):
+            store_skill(skill_dir, "my-skill", "1.0.0", store_home)
+
+        # No stray temp directory should remain
+        skill_store = store_home / "store" / "my-skill"
+        if skill_store.exists():
+            temps = [p for p in skill_store.iterdir() if p.name.startswith(".")]
+            assert temps == [], f"unexpected temp dirs: {temps}"
+
+    def test_propagates_type_error(self, skill_builder, store_home, monkeypatch):
+        """Programming bugs must not be swallowed."""
+        skill_dir = skill_builder("my-skill")
+
+        import shutil
+
+        def failing_copytree(*_args, **_kwargs):
+            raise TypeError("programming bug")
+
+        monkeypatch.setattr(shutil, "copytree", failing_copytree)
+
+        with pytest.raises(TypeError, match="programming bug"):
+            store_skill(skill_dir, "my-skill", "1.0.0", store_home)

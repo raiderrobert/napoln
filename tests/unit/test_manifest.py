@@ -218,6 +218,76 @@ class TestAddSkillToManifest:
         assert mf.skills["my-skill"].version == "2.0.0"
         assert mf.skills["my-skill"].store_hash == "def5678"
 
+    def test_read_manifest_wraps_toml_decode_error(self, tmp_path):
+        path = tmp_path / "manifest.toml"
+        path.write_text("[invalid toml", encoding="utf-8")
+
+        from napoln.errors import ManifestError
+
+        with pytest.raises(ManifestError, match="Could not read manifest"):
+            read_manifest(path)
+
+    def test_read_manifest_wraps_os_error(self, tmp_path, monkeypatch):
+        path = tmp_path / "manifest.toml"
+        path.write_text("[napoln]\nschema = 1\n", encoding="utf-8")
+
+        def raise_oserror(*_args, **_kwargs):
+            raise OSError("permission denied")
+
+        monkeypatch.setattr("pathlib.Path.read_text", raise_oserror)
+
+        from napoln.errors import ManifestError
+
+        with pytest.raises(ManifestError, match="Could not read manifest"):
+            read_manifest(path)
+
+    def test_read_manifest_propagates_type_error(self, tmp_path, monkeypatch):
+        """Programming bugs must not be swallowed."""
+        path = tmp_path / "manifest.toml"
+        path.write_text("[napoln]\nschema = 1\n", encoding="utf-8")
+
+        def raise_typeerror(*_args, **_kwargs):
+            raise TypeError("programming bug")
+
+        monkeypatch.setattr("pathlib.Path.read_text", raise_typeerror)
+        with pytest.raises(TypeError, match="programming bug"):
+            read_manifest(path)
+
+    def test_write_manifest_cleans_up_on_os_error(self, tmp_path, monkeypatch):
+        path = tmp_path / "manifest.toml"
+        mf = Manifest()
+
+        real_write_text = type(path).write_text
+
+        def failing_write_text(self, data, *args, **kwargs):
+            if self.name == ".manifest.toml.tmp":
+                raise OSError("disk full")
+            return real_write_text(self, data, *args, **kwargs)
+
+        monkeypatch.setattr("pathlib.Path.write_text", failing_write_text)
+
+        with pytest.raises(OSError, match="disk full"):
+            write_manifest(mf, path)
+
+        assert not (tmp_path / ".manifest.toml.tmp").exists()
+
+    def test_write_manifest_propagates_type_error(self, tmp_path, monkeypatch):
+        """Programming bugs must not be swallowed."""
+        path = tmp_path / "manifest.toml"
+        mf = Manifest()
+
+        real_write_text = type(path).write_text
+
+        def failing_write_text(self, data, *args, **kwargs):
+            if self.name == ".manifest.toml.tmp":
+                raise TypeError("programming bug")
+            return real_write_text(self, data, *args, **kwargs)
+
+        monkeypatch.setattr("pathlib.Path.write_text", failing_write_text)
+
+        with pytest.raises(TypeError, match="programming bug"):
+            write_manifest(mf, path)
+
 
 class TestRemoveSkillFromManifest:
     """Removing skills from the manifest."""

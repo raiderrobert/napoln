@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
-from napoln.commands.enable import _get_skills_to_enable
+from pathlib import Path
+from unittest.mock import MagicMock
+
+import pytest
+
+from napoln.commands.enable import _get_skills_to_enable, _place_skill_for_agent
 from napoln.core import manifest as manifest_mod
+from napoln.errors import PlacementError, StoreError
 
 
 class TestGetSkillsToEnable:
@@ -115,3 +121,121 @@ class TestGetSkillsToEnable:
         result = _get_skills_to_enable(mf, "hermes")
         assert len(result) == 1
         assert result[0][0] == "skill-a"
+
+
+class TestPlaceSkillForAgentExceptions:
+    """Regression: broad except Exception swallows programming bugs."""
+
+    @pytest.fixture
+    def skill_entry(self):
+        return manifest_mod.SkillEntry(
+            source="owner/repo",
+            version="1.0.0",
+            store_hash="abc123",
+            installed="2024-01-01T00:00:00Z",
+            updated="2024-01-01T00:00:00Z",
+        )
+
+    @pytest.fixture
+    def agent_config(self):
+        cfg = MagicMock()
+        cfg.id = "claude-code"
+        cfg.display_name = "Claude Code"
+        cfg.skill_path = lambda home, name, scope, project_root: Path(home) / "skills" / name
+        return cfg
+
+    def test_store_error_outputs_and_returns_none(self, skill_entry, agent_config, monkeypatch):
+        errors = []
+
+        def capture_error(msg, **_kwargs):
+            errors.append(msg)
+
+        monkeypatch.setattr("napoln.commands.enable.output.error", capture_error)
+        monkeypatch.setattr(
+            "napoln.commands.enable.store.ensure_stored",
+            lambda *_a, **_k: (_ for _ in ()).throw(StoreError("store failed")),
+        )
+
+        result = _place_skill_for_agent(
+            "my-skill",
+            skill_entry,
+            agent_config,
+            Path("/.napoln"),
+            Path.home(),
+            "global",
+            None,
+        )
+        assert result is None
+        assert any("Failed to retrieve" in e for e in errors)
+
+    def test_store_type_error_propagates(self, skill_entry, agent_config, monkeypatch):
+        """Programming bugs must not be swallowed."""
+        monkeypatch.setattr(
+            "napoln.commands.enable.store.ensure_stored",
+            lambda *_a, **_k: (_ for _ in ()).throw(TypeError("programming bug")),
+        )
+
+        with pytest.raises(TypeError, match="programming bug"):
+            _place_skill_for_agent(
+                "my-skill",
+                skill_entry,
+                agent_config,
+                Path("/.napoln"),
+                Path.home(),
+                "global",
+                None,
+            )
+
+    def test_placement_error_outputs_and_returns_none(
+        self, skill_entry, agent_config, monkeypatch, tmp_path
+    ):
+        errors = []
+
+        def capture_error(msg, **_kwargs):
+            errors.append(msg)
+
+        monkeypatch.setattr("napoln.commands.enable.output.error", capture_error)
+        monkeypatch.setattr(
+            "napoln.commands.enable.store.ensure_stored",
+            lambda *_a, **_k: tmp_path / "store",
+        )
+        monkeypatch.setattr(
+            "napoln.commands.enable.linker.place_skill",
+            lambda *_a, **_k: (_ for _ in ()).throw(PlacementError("placement failed")),
+        )
+
+        result = _place_skill_for_agent(
+            "my-skill",
+            skill_entry,
+            agent_config,
+            Path("/.napoln"),
+            Path.home(),
+            "global",
+            None,
+        )
+        assert result is None
+        assert any("Failed to place" in e for e in errors)
+
+    def test_placement_type_error_propagates(
+        self, skill_entry, agent_config, monkeypatch, tmp_path
+    ):
+        """Programming bugs must not be swallowed."""
+        monkeypatch.setattr(
+            "napoln.commands.enable.store.ensure_stored",
+            lambda *_a, **_k: tmp_path / "store",
+        )
+        monkeypatch.setattr(
+            "napoln.commands.enable.linker.place_skill",
+            lambda *_a, **_k: (_ for _ in ()).throw(TypeError("programming bug")),
+        )
+
+        with pytest.raises(TypeError, match="programming bug"):
+            _place_skill_for_agent(
+                "my-skill",
+                skill_entry,
+                agent_config,
+                Path("/.napoln"),
+                Path.home(),
+                "global",
+                None,
+            )
