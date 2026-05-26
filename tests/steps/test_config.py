@@ -46,7 +46,7 @@ def test_config_doctor_json():
 @given("napoln is initialized")
 def napoln_initialized(env: NapolnTestEnv, cli_runner: CliRunner):
     skill_path = env.create_local_skill("init-skill")
-    cli_runner.invoke(app, ["add", str(skill_path)], env=env.env_vars)
+    cli_runner.invoke(app, ["add", str(skill_path), "--global"], env=env.env_vars)
 
 
 # ─── When ────────────────────────────────────────────────────────────────────

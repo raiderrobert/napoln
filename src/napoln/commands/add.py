@@ -121,8 +121,8 @@ def run_add(
     if dry_run:
         output.dry_run_header()
 
-    # Install bootstrap skill on first run
-    _install_bootstrap_skill(napoln_home, home, agent_configs, scope, project_root, dry_run)
+    # Install bootstrap skill on first run (always global)
+    _install_bootstrap_skill(napoln_home, home, agent_configs, dry_run)
 
     # Load manifest once
     manifest_path: Path = manifest.get_manifest_path(napoln_home, scope, project_root)
@@ -177,7 +177,7 @@ def _ensure_initialized(napoln_home: Path) -> None:
         config = {
             "napoln": {
                 "default_agents": [],
-                "default_scope": "global",
+                "default_scope": "project",
             },
             "telemetry": {
                 "enabled": False,
@@ -191,12 +191,11 @@ def _install_bootstrap_skill(
     napoln_home: Path,
     home: Path,
     agent_configs: list[agents_mod.AgentConfig],
-    scope: str,
-    project_root: Path | None,
     dry_run: bool = False,
 ) -> None:
     """Install the napoln-manage bootstrap skill if not already installed."""
-    manifest_path = manifest.get_manifest_path(napoln_home, scope, project_root)
+    # Bootstrap is always global — it teaches agents how to use napoln.
+    manifest_path = manifest.get_manifest_path(napoln_home)
     mf = manifest.read_manifest(manifest_path)
 
     if "napoln-manage" in mf.skills:
@@ -214,9 +213,9 @@ def _install_bootstrap_skill(
     # Store it
     store_path, content_hash = store.store_skill(skill_dir, "napoln-manage", "0.1.0", napoln_home)
 
-    # Place it
+    # Place it globally
     placements_map = agents_mod.deduplicate_placements(
-        agent_configs, "napoln-manage", home, scope, project_root
+        agent_configs, "napoln-manage", home, "global", None
     )
     agent_placements: dict[str, manifest.AgentPlacement] = {}
 
@@ -227,7 +226,7 @@ def _install_bootstrap_skill(
             agent_placements[agent.id] = manifest.AgentPlacement(
                 path=str(target_path),
                 link_mode=link_mode,
-                scope=scope,
+                scope="global",
             )
 
     mf = manifest.add_skill_to_manifest(

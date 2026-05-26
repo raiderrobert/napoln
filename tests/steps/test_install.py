@@ -53,7 +53,7 @@ def local_skill_exists(env: NapolnTestEnv):
 @given(parsers.parse('a skill "{name}" is already installed'))
 def skill_already_installed(env: NapolnTestEnv, name: str, cli_runner: CliRunner):
     env.create_local_skill(name)
-    result = cli_runner.invoke(app, ["add", str(env.skill_dir)], env=env.env_vars)
+    result = cli_runner.invoke(app, ["add", str(env.skill_dir), "--global"], env=env.env_vars)
     assert result.exit_code == 0, result.output
 
 
@@ -62,33 +62,37 @@ def skill_already_installed(env: NapolnTestEnv, name: str, cli_runner: CliRunner
 
 @when("I run napoln add with the local skill", target_fixture="result_env")
 def run_add(env: NapolnTestEnv, cli_runner: CliRunner):
-    env.result = cli_runner.invoke(app, ["add", str(env.skill_dir)], env=env.env_vars)
+    env.result = cli_runner.invoke(app, ["add", str(env.skill_dir), "--global"], env=env.env_vars)
     return env
 
 
 @when("I run napoln add with dry run", target_fixture="result_env")
 def run_add_dry(env: NapolnTestEnv, cli_runner: CliRunner):
-    env.result = cli_runner.invoke(app, ["add", str(env.skill_dir), "--dry-run"], env=env.env_vars)
+    env.result = cli_runner.invoke(
+        app, ["add", str(env.skill_dir), "--dry-run", "--global"], env=env.env_vars
+    )
     return env
 
 
 @when("I run napoln add with the same skill again", target_fixture="result_env")
 def run_add_again(env: NapolnTestEnv, cli_runner: CliRunner):
-    env.result = cli_runner.invoke(app, ["add", str(env.skill_dir)], env=env.env_vars)
+    env.result = cli_runner.invoke(app, ["add", str(env.skill_dir), "--global"], env=env.env_vars)
     return env
 
 
 @when("I run napoln add with --agents claude-code", target_fixture="result_env")
 def run_add_explicit_agent(env: NapolnTestEnv, cli_runner: CliRunner):
     env.result = cli_runner.invoke(
-        app, ["add", str(env.skill_dir), "--agents", "claude-code"], env=env.env_vars
+        app,
+        ["add", str(env.skill_dir), "--agents", "claude-code", "--global"],
+        env=env.env_vars,
     )
     return env
 
 
 @when(parsers.parse('I run napoln add with a bare name "{name}"'), target_fixture="result_env")
 def run_add_bare_name(env: NapolnTestEnv, name: str, cli_runner: CliRunner):
-    env.result = cli_runner.invoke(app, ["add", name], env=env.env_vars)
+    env.result = cli_runner.invoke(app, ["add", name, "--global"], env=env.env_vars)
     return env
 
 

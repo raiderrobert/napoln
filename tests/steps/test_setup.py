@@ -93,7 +93,7 @@ def run_setup_noninteractive(env: NapolnTestEnv, cli_runner: CliRunner):
 @when("I run napoln add with a valid local skill", target_fixture="result_env")
 def run_add(env: NapolnTestEnv, cli_runner: CliRunner):
     skill_path = env.create_local_skill()
-    env.result = cli_runner.invoke(app, ["add", str(skill_path)], env=env.env_vars)
+    env.result = cli_runner.invoke(app, ["add", str(skill_path), "--global"], env=env.env_vars)
     return env
 
 

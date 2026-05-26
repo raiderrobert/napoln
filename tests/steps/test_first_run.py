@@ -43,7 +43,7 @@ def fresh_napoln(napoln_env: NapolnTestEnv):
 @when("I run napoln add with a valid local skill", target_fixture="result_env")
 def run_add_local(env: NapolnTestEnv, cli_runner: CliRunner):
     skill_path = env.create_local_skill()
-    env.result = cli_runner.invoke(app, ["add", str(skill_path)], env=env.env_vars)
+    env.result = cli_runner.invoke(app, ["add", str(skill_path), "--global"], env=env.env_vars)
     return env
 
 
@@ -51,7 +51,7 @@ def run_add_local(env: NapolnTestEnv, cli_runner: CliRunner):
 def run_add_no_agents(env: NapolnTestEnv, cli_runner: CliRunner, monkeypatch):
     skill_path = env.create_local_skill()
     monkeypatch.setattr("napoln.core.agents._check_on_path", lambda cmd: False)
-    env.result = cli_runner.invoke(app, ["add", str(skill_path)], env=env.env_vars)
+    env.result = cli_runner.invoke(app, ["add", str(skill_path), "--global"], env=env.env_vars)
     return env
 
 
@@ -60,7 +60,7 @@ def run_add_no_agents(env: NapolnTestEnv, cli_runner: CliRunner, monkeypatch):
     target_fixture="result_env",
 )
 def run_add_bare_name(env: NapolnTestEnv, name: str, cli_runner: CliRunner):
-    env.result = cli_runner.invoke(app, ["add", name], env=env.env_vars)
+    env.result = cli_runner.invoke(app, ["add", name, "--global"], env=env.env_vars)
     return env
 
 
