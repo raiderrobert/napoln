@@ -292,3 +292,93 @@ class TestResolveGitFetch:
 
         fetch_calls = [c for c in calls if c[:2] == ["git", "fetch"]]
         assert len(fetch_calls) == 2
+
+
+class TestResolveGitSubdirectory:
+    """resolve_git scoped to a subdirectory of a multi-bundle repo."""
+
+    @pytest.fixture
+    def bundle_cache(self, tmp_path, monkeypatch):
+        cache_dir = tmp_path / "cache"
+        clone_dir = cache_dir / "owner-repo"
+        for rel in ("bundle-a/skills/alpha", "bundle-a/skills/beta", "bundle-b/skills/gamma"):
+            d = clone_dir / rel
+            d.mkdir(parents=True)
+            (d / "SKILL.md").write_text(f"---\nname: {d.name}\ndescription: x\n---\n# Hi")
+        (clone_dir / "bundle-a" / "README.md").write_text("not a skill")
+        (clone_dir / "empty").mkdir()
+        cache_dir.mkdir(exist_ok=True)
+        _fetch_sentinel(cache_dir, "owner", "repo").touch()
+        monkeypatch.setattr(resolver.shutil, "which", lambda _: "/usr/bin/git")
+        monkeypatch.setattr(
+            resolver.subprocess,
+            "run",
+            lambda cmd, *a, **k: subprocess.CompletedProcess(cmd, 0, stdout="", stderr=""),
+        )
+        return cache_dir
+
+    @staticmethod
+    def _parsed(path: str) -> ParsedSource:
+        return ParsedSource(
+            source_type="git",
+            host="github.com",
+            owner="owner",
+            repo="repo",
+            path=path,
+            version="main",
+            original=f"owner/repo/{path}@main",
+        )
+
+    @pytest.mark.parametrize(
+        "path, skill_filter, expected_names",
+        [
+            ("bundle-a/skills", "*", ["alpha", "beta"]),
+            ("bundle-a", "*", ["alpha", "beta"]),
+            ("bundle-b/skills", "*", ["gamma"]),
+            ("bundle-a/skills", "beta", ["beta"]),
+            ("bundle-a/skills/alpha", "*", ["alpha"]),
+            ("bundle-a/skills/alpha", None, ["alpha"]),
+        ],
+        ids=[
+            "all-in-skills-dir",
+            "all-in-bundle-root",
+            "all-single-skill-bundle",
+            "named-in-subdir",
+            "all-on-direct-skill-path",
+            "direct-skill-path",
+        ],
+    )
+    def test_scopes_discovery_to_subdirectory(
+        self, bundle_cache, path, skill_filter, expected_names
+    ):
+        result = resolver.resolve_git(self._parsed(path), bundle_cache, skill_filter=skill_filter)
+        resolved = result if isinstance(result, list) else [result]
+
+        assert [r.skill_name for r in resolved] == expected_names
+        for r in resolved:
+            rel = r.skill_dir.relative_to(bundle_cache / "owner-repo")
+            assert r.source_id == f"github.com/owner/repo/{rel}"
+
+    def test_picker_receives_only_subdirectory_skills(self, bundle_cache):
+        from napoln.errors import MultipleSkillsError
+
+        with pytest.raises(MultipleSkillsError) as exc:
+            resolver.resolve_git(self._parsed("bundle-a/skills"), bundle_cache)
+
+        assert sorted(d.name for d in exc.value.skill_dirs) == ["alpha", "beta"]
+        assert exc.value.repo_dir == bundle_cache / "owner-repo"
+
+    @pytest.mark.parametrize(
+        "path, skill_filter, message",
+        [
+            ("missing", "*", "does not exist"),
+            ("missing", None, "does not exist"),
+            ("empty", "*", "No SKILL.md found"),
+            ("empty", None, "No SKILL.md found"),
+            ("bundle-a/skills", "gamma", "not found"),
+        ],
+        ids=["missing-all", "missing-single", "empty-all", "empty-single", "wrong-name"],
+    )
+    def test_subdirectory_errors(self, bundle_cache, path, skill_filter, message):
+        with pytest.raises(ResolverError, match=message):
+            resolver.resolve_git(self._parsed(path), bundle_cache, skill_filter=skill_filter)

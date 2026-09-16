@@ -47,3 +47,27 @@ Feature: Add a skill
     When I run napoln add with --project --agents claude-code
     Then the project manifest contains the skill
     And the exit code is 0
+
+  Scenario: Add all skills from a subdirectory of a multi-bundle repo
+    Given Claude Code is installed
+    And a cached git repo "owner/repo" with bundles "bundle-a:alpha,beta" and "bundle-b:gamma"
+    When I run napoln add "owner/repo/bundle-a/skills" with --all
+    Then the manifest contains skills "alpha,beta"
+    And the manifest does not contain skills "gamma"
+    And the manifest source for "alpha" is "github.com/owner/repo/bundle-a/skills/alpha"
+    And the exit code is 0
+
+  Scenario: Add a named skill from a subdirectory of a multi-bundle repo
+    Given Claude Code is installed
+    And a cached git repo "owner/repo" with bundles "bundle-a:alpha,beta" and "bundle-b:gamma"
+    When I run napoln add "owner/repo/bundle-a/skills" with --skill "beta"
+    Then the manifest contains skills "beta"
+    And the manifest does not contain skills "alpha,gamma"
+    And the exit code is 0
+
+  Scenario: Add from a subdirectory that has no skills
+    Given Claude Code is installed
+    And a cached git repo "owner/repo" with bundles "bundle-a:alpha,beta" and "bundle-b:gamma"
+    When I run napoln add "owner/repo/docs" with --all
+    Then the output contains "does not exist"
+    And the exit code is 1

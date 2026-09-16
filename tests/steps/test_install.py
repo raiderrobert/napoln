@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 import tomllib
 
 from pytest_bdd import given, parsers, scenario, then, when
@@ -41,6 +42,21 @@ def test_add_project():
     pass
 
 
+@scenario("../features/add.feature", "Add all skills from a subdirectory of a multi-bundle repo")
+def test_add_subdir_all():
+    pass
+
+
+@scenario("../features/add.feature", "Add a named skill from a subdirectory of a multi-bundle repo")
+def test_add_subdir_named():
+    pass
+
+
+@scenario("../features/add.feature", "Add from a subdirectory that has no skills")
+def test_add_subdir_missing():
+    pass
+
+
 # ─── Given ────────────────────────────────────────────────────────────────────
 # "Claude Code is installed" is in conftest.
 
@@ -57,7 +73,48 @@ def skill_already_installed(env: NapolnTestEnv, name: str, cli_runner: CliRunner
     assert result.exit_code == 0, result.output
 
 
+@given(parsers.parse('a cached git repo "{source}" with bundles "{bundle_a}" and "{bundle_b}"'))
+def cached_bundle_repo(env: NapolnTestEnv, source: str, bundle_a: str, bundle_b: str):
+    owner, repo = source.split("/")
+    cache_dir = env.napoln_home / "cache"
+    clone_dir = cache_dir / f"{owner}-{repo}"
+    for bundle in (bundle_a, bundle_b):
+        bundle_name, names = bundle.split(":")
+        for name in names.split(","):
+            skill_dir = clone_dir / bundle_name / "skills" / name
+            skill_dir.mkdir(parents=True)
+            (skill_dir / "SKILL.md").write_text(
+                f"---\nname: {name}\ndescription: A test skill.\n"
+                f'metadata:\n  version: "1.0.0"\n---\n\n# {name}\n'
+            )
+    git_env = {
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@example.com",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@example.com",
+        "HOME": str(env.home),
+    }
+    for cmd in (["git", "init", "-q"], ["git", "add", "."], ["git", "commit", "-qm", "init"]):
+        subprocess.run(cmd, cwd=clone_dir, check=True, env=git_env, capture_output=True)
+    (cache_dir / f".{owner}-{repo}.last-fetch").touch()
+
+
 # ─── When ────────────────────────────────────────────────────────────────────
+
+
+@when(parsers.parse('I run napoln add "{source}" with --all'), target_fixture="result_env")
+def run_add_source_all(env: NapolnTestEnv, source: str, cli_runner: CliRunner):
+    env.result = cli_runner.invoke(app, ["add", source, "--all"], env=env.env_vars)
+    return env
+
+
+@when(
+    parsers.parse('I run napoln add "{source}" with --skill "{name}"'),
+    target_fixture="result_env",
+)
+def run_add_source_skill(env: NapolnTestEnv, source: str, name: str, cli_runner: CliRunner):
+    env.result = cli_runner.invoke(app, ["add", source, "--skill", name], env=env.env_vars)
+    return env
 
 
 @when("I run napoln add with the local skill", target_fixture="result_env")
@@ -157,3 +214,28 @@ def project_manifest_has_skill(result_env: NapolnTestEnv):
     assert mf_path.exists(), f"Expected project manifest at {mf_path}"
     data = tomllib.loads(mf_path.read_text())
     assert "test-skill" in data.get("skills", {})
+
+
+def _manifest_skills(env: NapolnTestEnv) -> dict:
+    mf_path = env.napoln_home / "manifest.toml"
+    assert mf_path.exists()
+    return tomllib.loads(mf_path.read_text()).get("skills", {})
+
+
+@then(parsers.parse('the manifest contains skills "{names}"'))
+def manifest_has_skills(result_env: NapolnTestEnv, names: str):
+    skills = _manifest_skills(result_env)
+    for name in names.split(","):
+        assert name in skills, f"{name} missing from {sorted(skills)}"
+
+
+@then(parsers.parse('the manifest does not contain skills "{names}"'))
+def manifest_lacks_skills(result_env: NapolnTestEnv, names: str):
+    skills = _manifest_skills(result_env)
+    for name in names.split(","):
+        assert name not in skills, f"{name} unexpectedly in {sorted(skills)}"
+
+
+@then(parsers.parse('the manifest source for "{name}" is "{source}"'))
+def manifest_source_is(result_env: NapolnTestEnv, name: str, source: str):
+    assert _manifest_skills(result_env)[name]["source"] == source

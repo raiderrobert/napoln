@@ -61,8 +61,11 @@ Install a specific skill, pin a version, or use a local path:
 ```bash
 napoln add owner/repo --skill code-review   # specific skill by name
 napoln add owner/repo@v1.2.0               # pinned to a tag
+napoln add owner/repo/team-a/skills --all   # every skill under a subdirectory
 napoln add ./my-local-skill                 # local directory
 ```
+
+A path after `owner/repo` scopes the install. If it points at a single skill, that skill is installed. If it points at a directory of skills (a bundle in a monorepo), `--all`, `--skill`, and the picker only see skills under that directory.
 
 Multi-skill repos show an interactive picker when no `--skill` or `--all` flag is given:
 

@@ -340,6 +340,8 @@ napoln add owner/repo                      # interactive picker for multi-skill 
 napoln add owner/repo --all                # install all skills
 napoln add owner/repo --skill my-skill     # specific skill by name
 napoln add owner/repo@v1.2.0              # pinned version
+napoln add owner/repo/team-a/skills --all  # all skills under a subdirectory
+napoln add owner/repo/skills/my-skill      # a single skill by path
 
 # Local path (for development)
 napoln add ./path/to/skill

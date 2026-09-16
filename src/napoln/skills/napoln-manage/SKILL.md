@@ -40,6 +40,7 @@ uvx napoln add owner/repo                    # Interactive picker for multi-skil
 uvx napoln add owner/repo --all              # Install all skills from a repo
 uvx napoln add owner/repo --skill name       # Install a specific skill by name
 uvx napoln add owner/repo@v1.2.0            # Pinned version
+uvx napoln add owner/repo/team/skills --all  # All skills under one subdirectory
 
 # From a local path
 uvx napoln add ./path/to/skill
