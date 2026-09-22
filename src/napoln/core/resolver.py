@@ -307,10 +307,16 @@ def resolve_git(
             )
 
     source_id = f"{parsed.host}/{parsed.owner}/{parsed.repo}"
+    discovery_root = _discovery_root(clone_dir, parsed.path)
 
-    # Handle multi-skill repos
-    if skill_filter and not parsed.path:
-        skill_dirs = _find_all_skills_in_repo(clone_dir)
+    # Handle multi-skill repos (or multi-skill subdirectories)
+    if skill_filter and not (discovery_root / "SKILL.md").exists():
+        skill_dirs = _find_all_skills_in_repo(discovery_root)
+        if not skill_dirs:
+            raise ResolverError(
+                _no_skill_message(parsed.path),
+                fix="Make sure the path contains at least one directory with a SKILL.md file.",
+            )
         if skill_filter != "*":
             # Filter to a specific skill
             skill_dirs = [d for d in skill_dirs if d.name == skill_filter]
@@ -344,8 +350,9 @@ def resolve_git(
     skill_dir = _find_skill_in_repo(clone_dir, parsed.path)
     version = _resolve_version(skill_dir, ref, clone_dir)
 
-    if parsed.path:
-        source_id += f"/{parsed.path}"
+    rel = skill_dir.relative_to(clone_dir)
+    if str(rel) != ".":
+        source_id += f"/{rel}"
 
     return ResolvedSource(
         source_type=SourceType.GIT,
@@ -456,30 +463,45 @@ def _find_all_skills_in_repo(repo_dir: Path) -> list[Path]:
     return results
 
 
-def _find_skill_in_repo(repo_dir: Path, subpath: str) -> Path:
-    """Find a skill directory in a cloned repo.
-
-    Checks:
-    1. If subpath is specified, use repo_dir/subpath
-    2. If repo root has SKILL.md, use root
-    3. If repo has skills/ directory, look there
-    4. Scan for any SKILL.md files
-    """
-    if subpath:
-        skill_dir = repo_dir / subpath
-        if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
-            return skill_dir
+def _discovery_root(repo_dir: Path, subpath: str) -> Path:
+    """Return the directory to search for skills, validating any subpath."""
+    if not subpath:
+        return repo_dir
+    root = repo_dir / subpath
+    if not root.is_dir():
         raise ResolverError(
-            f"No SKILL.md found at {subpath} in the repository",
+            f"Path '{subpath}' does not exist in the repository",
             fix="Check the path within the repository.",
         )
+    return root
+
+
+def _no_skill_message(subpath: str) -> str:
+    if subpath:
+        return f"No SKILL.md found at {subpath} in the repository"
+    return "No SKILL.md found in the repository"
+
+
+def _find_skill_in_repo(repo_dir: Path, subpath: str) -> Path:
+    """Find a single skill directory in a cloned repo.
+
+    The search root is repo_dir, or repo_dir/subpath when a subpath is given.
+    Checks, in order:
+    1. If the root has SKILL.md, use it
+    2. If the root has a skills/ directory, look there
+    3. Scan for any SKILL.md files under the root
+
+    Raises MultipleSkillsError (with repo_dir, not the subpath) when more than
+    one skill is found so callers can offer a picker.
+    """
+    root = _discovery_root(repo_dir, subpath)
 
     # Root-level skill
-    if (repo_dir / "SKILL.md").exists():
-        return repo_dir
+    if (root / "SKILL.md").exists():
+        return root
 
     # Convention: skills/ directory
-    skills_dir = repo_dir / "skills"
+    skills_dir = root / "skills"
     if skills_dir.is_dir():
         skill_dirs = [d for d in skills_dir.iterdir() if d.is_dir() and (d / "SKILL.md").exists()]
         if len(skill_dirs) == 1:
@@ -488,7 +510,7 @@ def _find_skill_in_repo(repo_dir: Path, subpath: str) -> Path:
             raise MultipleSkillsError(repo_dir, skill_dirs)
 
     # Scan for any SKILL.md
-    skill_files = list(repo_dir.rglob("SKILL.md"))
+    skill_files = list(root.rglob("SKILL.md"))
     # Filter out git internals
     skill_files = [f for f in skill_files if ".git" not in f.parts]
     if len(skill_files) == 1:
@@ -497,8 +519,8 @@ def _find_skill_in_repo(repo_dir: Path, subpath: str) -> Path:
         raise MultipleSkillsError(repo_dir, [f.parent for f in skill_files])
 
     raise ResolverError(
-        "No SKILL.md found in the repository",
-        fix="Make sure the repository contains a valid skill with a SKILL.md file.",
+        _no_skill_message(subpath),
+        fix="Make sure the path contains a valid skill with a SKILL.md file.",
     )
 
 
