@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.12](https://github.com/raiderrobert/napoln/compare/v0.2.11...v0.2.12) (2026-09-22)
+
+
+### Features
+
+* scope --all, --skill, and picker to a repo subdirectory ([#116](https://github.com/raiderrobert/napoln/issues/116)) ([9ec54c4](https://github.com/raiderrobert/napoln/commit/9ec54c430662f42169c6743bf3a28dd79d2563e1)), closes [#115](https://github.com/raiderrobert/napoln/issues/115)
+
 ## [0.2.11](https://github.com/raiderrobert/napoln/compare/v0.2.10...v0.2.11) (2026-04-25)
 
 
