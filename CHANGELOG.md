@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.13](https://github.com/dynamite-systems/napoln/compare/v0.2.12...v0.2.13) (2026-11-14)
+
+
+### Documentation
+
+* split README introduction into two paragraphs ([#123](https://github.com/dynamite-systems/napoln/issues/123)) ([945e5fb](https://github.com/dynamite-systems/napoln/commit/945e5fbc7b48a7957a70604919e29681f32b2f75))
+
 ## [0.2.12](https://github.com/raiderrobert/napoln/compare/v0.2.11...v0.2.12) (2026-09-22)
 
 
